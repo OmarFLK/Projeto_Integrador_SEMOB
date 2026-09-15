@@ -1,0 +1,3 @@
+helloWord = ("print")
+
+print(helloWord)
