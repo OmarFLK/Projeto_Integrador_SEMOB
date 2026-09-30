@@ -1,3 +1,0 @@
-helloWord = ("print")
-
-print(helloWord)
