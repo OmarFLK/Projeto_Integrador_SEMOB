@@ -9,6 +9,7 @@ import '../../../models/transport_models.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/analytics_charts.dart';
 import '../../../shared/widgets/global_filter_bar.dart';
+import '../../../shared/widgets/coverage_notice.dart';
 import '../../../shared/widgets/page_components.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -28,7 +29,7 @@ class DashboardPage extends ConsumerWidget {
           action: const GlobalFilterBar(),
         ),
         const SizedBox(height: 16),
-        const DataSourceNote(),
+        const CoverageNotice(),
         const SizedBox(height: 16),
         operations.when(
           loading: () => const _LoadingDashboard(),
@@ -104,15 +105,13 @@ class _DashboardContent extends StatelessWidget {
               label: 'Passageiros totais',
               value: Formatters.integer(passengerTotal),
               icon: Icons.groups_2_outlined,
-              change: '+114,5%',
               positive: true,
-              helper: 'vs. julho/2026',
+              helper: 'Total do período selecionado',
             ),
             MetricCard(
               label: 'Passageiros pagantes',
               value: Formatters.integer(turnstile + advance),
               icon: Icons.confirmation_number_outlined,
-              change: '+1,3%',
               positive: true,
               helper: 'Catraca + antecipados',
             ),
@@ -120,7 +119,6 @@ class _DashboardContent extends StatelessWidget {
               label: 'Não pagantes',
               value: Formatters.integer(nonPaying),
               icon: Icons.accessible_forward_outlined,
-              change: '+271,5%',
               positive: false,
               helper: 'Dado provisório',
             ),
@@ -128,41 +126,36 @@ class _DashboardContent extends StatelessWidget {
               label: 'Viagens programadas',
               value: Formatters.integer(scheduled),
               icon: Icons.event_note_outlined,
-              change: '−3,7%',
               positive: false,
-              helper: 'vs. julho/2026',
+              helper: 'Total do período selecionado',
             ),
             MetricCard(
               label: 'Viagens realizadas',
               value: Formatters.integer(completed),
               icon: Icons.task_alt_rounded,
-              change: '−3,7%',
               positive: false,
-              helper: 'vs. julho/2026',
+              helper: 'Total do período selecionado',
             ),
             MetricCard(
               label: 'Taxa de realização',
               value: Formatters.percent(
-                completed / scheduled * 100,
+                scheduled == 0 ? 0 : completed / scheduled * 100,
                 decimals: 2,
               ),
               icon: Icons.speed_rounded,
-              change: '+0,00 p.p.',
-              helper: '34.994 de 35.050',
+              helper: '$completed de $scheduled',
             ),
             MetricCard(
               label: 'Km total',
               value: '${Formatters.decimal(totalKm)} km',
               icon: Icons.route_outlined,
-              change: '+4,9%',
-              helper: 'vs. julho/2026',
+              helper: 'Total do período selecionado',
             ),
             MetricCard(
               label: 'Km produtivo',
               value: '${Formatters.decimal(productiveKm)} km',
               icon: Icons.timeline_rounded,
-              change: '+5,5%',
-              helper: '94,99% do total',
+              helper: 'Quilometragem registrada',
             ),
           ],
         ),
@@ -367,10 +360,8 @@ class _LineSummaryTable extends StatelessWidget {
               const DataCell(Text('—')),
               DataCell(
                 StatusBadge(
-                  label: 'Regular',
-                  kind: line.performance < 99.7
-                      ? StatusKind.warning
-                      : StatusKind.good,
+                  label: 'Volume registrado',
+                  kind: line.trips == 0 ? StatusKind.warning : StatusKind.good,
                 ),
               ),
             ],

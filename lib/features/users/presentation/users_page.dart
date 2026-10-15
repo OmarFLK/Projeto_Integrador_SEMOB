@@ -1,268 +1,241 @@
 import 'package:flutter/material.dart';
-
-import '../../../core/responsive/breakpoints.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../mocks/mock_users.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user.dart';
+import '../../../services/api_client.dart';
+import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/page_components.dart';
 
-class UsersPage extends StatefulWidget {
+class UsersPage extends ConsumerStatefulWidget {
   const UsersPage({super.key});
-
   @override
-  State<UsersPage> createState() => _UsersPageState();
+  ConsumerState<UsersPage> createState() => _UsersState();
 }
 
-class _UsersPageState extends State<UsersPage> {
-  String _search = '';
-  AccessLevel? _level;
-
+class _UsersState extends ConsumerState<UsersPage> {
+  String search = '';
+  String? level;
   @override
   Widget build(BuildContext context) {
-    final users = mockUsers.where((user) {
-      final query = _search.toLowerCase();
-      return (_level == null || user.accessLevel == _level) &&
-          (query.isEmpty ||
-              user.name.toLowerCase().contains(query) ||
-              user.identifier.toLowerCase().contains(query));
-    }).toList();
+    final users = ref.watch(remoteProvider('users'));
     return PageBody(
       children: [
         PageHeader(
           title: 'Usuários e Acessos',
-          subtitle: 'Gestão visual de funcionários e perfis internos',
+          subtitle: 'Contas e permissões persistidas',
           action: ElevatedButton.icon(
-            onPressed: _newUser,
-            icon: const Icon(Icons.person_add_alt_1, size: 18),
+            onPressed: () => _edit(),
+            icon: const Icon(Icons.person_add),
             label: const Text('Novo usuário'),
           ),
         ),
         const SizedBox(height: 16),
-        const DataSourceNote(
-          text:
-              'Cadastros demonstrativos do frontend. Nenhum usuário real é alterado nesta versão.',
+        TextField(
+          decoration: const InputDecoration(
+            labelText: 'Buscar nome, e-mail ou matrícula',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (v) => setState(() => search = v.toLowerCase()),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: level,
+          decoration: const InputDecoration(labelText: 'Perfil'),
+          items: [
+            const DropdownMenuItem<String>(value: null, child: Text('Todos')),
+            for (final role in AccessLevel.values)
+              DropdownMenuItem(value: role.name, child: Text(role.label)),
+          ],
+          onChanged: (v) => setState(() => level = v),
         ),
         const SizedBox(height: 16),
-        SectionCard(
-          title: 'Acessos internos',
-          subtitle: '${users.length} usuários encontrados',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        users.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, s) => Column(
             children: [
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  SizedBox(
-                    width: AppBreakpoints.isMobile(context)
-                        ? double.infinity
-                        : 310,
-                    child: TextField(
-                      onChanged: (value) => setState(() => _search = value),
-                      decoration: const InputDecoration(
-                        hintText: 'Buscar nome, matrícula ou e-mail',
-                        prefixIcon: Icon(Icons.search, size: 19),
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: AppBreakpoints.isMobile(context)
-                        ? double.infinity
-                        : 190,
-                    child: DropdownButtonFormField<AccessLevel?>(
-                      initialValue: _level,
-                      decoration: const InputDecoration(
-                        labelText: 'Perfil',
-                        isDense: true,
-                      ),
-                      items: [
-                        const DropdownMenuItem<AccessLevel?>(
-                          value: null,
-                          child: Text('Todos os perfis'),
-                        ),
-                        ...AccessLevel.values.map(
-                          (item) => DropdownMenuItem<AccessLevel?>(
-                            value: item,
-                            child: Text(item.label),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() => _level = value),
-                    ),
-                  ),
-                ],
+              Text(apiError(e)),
+              TextButton(
+                onPressed: () => ref.invalidate(remoteProvider('users')),
+                child: const Text('Tentar novamente'),
               ),
-              const SizedBox(height: 14),
-              if (AppBreakpoints.isMobile(context))
-                ...users.map((user) => _UserCard(user: user))
-              else
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('Nome')),
-                      DataColumn(label: Text('Matrícula / e-mail')),
-                      DataColumn(label: Text('Cargo')),
-                      DataColumn(label: Text('Setor')),
-                      DataColumn(label: Text('Perfil')),
-                      DataColumn(label: Text('Status')),
-                      DataColumn(label: Text('Último acesso')),
-                    ],
-                    rows: users
+            ],
+          ),
+          data: (value) {
+            final items = (value as List)
+                .map((r) => Map<String, dynamic>.from(r as Map))
+                .where(
+                  (u) =>
+                      (level == null || u['accessLevel'] == level) &&
+                      ['name', 'email', 'identifier'].any(
+                        (k) => (u[k] ?? '').toString().toLowerCase().contains(
+                          search,
+                        ),
+                      ),
+                )
+                .toList();
+            return Column(
+              children: [
+                if (items.isEmpty) const Text('Nenhum usuário encontrado.'),
+                for (final u in items)
+                  Card(
+                    child: ListTile(
+                      title: Text(u['name'] as String),
+                      subtitle: Text(
+                        '${u['email']} • ${u['accessLevel']} • ${u['active'] == true ? 'Ativo' : 'Inativo'}',
+                      ),
+                      trailing: IconButton(
+                        tooltip: 'Editar usuário',
+                        onPressed: () => _edit(u),
+                        icon: const Icon(Icons.edit),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _edit([Map<String, dynamic>? user]) async {
+    final name = TextEditingController(text: user?['name'] as String?);
+    final email = TextEditingController(text: user?['email'] as String?);
+    final identifier = TextEditingController(
+      text: user?['identifier'] as String?,
+    );
+    final job = TextEditingController(text: user?['jobTitle'] as String?);
+    final department = TextEditingController(
+      text: user?['department'] as String?,
+    );
+    final password = TextEditingController();
+    var role = user?['accessLevel'] as String? ?? 'operator';
+    var active = user?['active'] == true || user == null;
+    var saving = false;
+    String? error;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: Text(user == null ? 'Novo usuário' : 'Editar usuário'),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'Nome'),
+                  ),
+                  if (user == null) ...[
+                    TextField(
+                      controller: email,
+                      decoration: const InputDecoration(labelText: 'E-mail'),
+                    ),
+                    TextField(
+                      controller: identifier,
+                      decoration: const InputDecoration(
+                        labelText: 'Matrícula (opcional)',
+                      ),
+                    ),
+                    TextField(
+                      controller: password,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Senha inicial (mínimo 12 caracteres)',
+                      ),
+                    ),
+                  ],
+                  TextField(
+                    controller: job,
+                    decoration: const InputDecoration(labelText: 'Cargo'),
+                  ),
+                  TextField(
+                    controller: department,
+                    decoration: const InputDecoration(labelText: 'Setor'),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: role,
+                    items: AccessLevel.values
                         .map(
-                          (user) => DataRow(
-                            cells: [
-                              DataCell(
-                                Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 15,
-                                      backgroundColor: AppColors.greenLight,
-                                      child: Text(
-                                        _initials(user.name),
-                                        style: const TextStyle(
-                                          color: AppColors.greenDark,
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      user.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              DataCell(Text(user.identifier)),
-                              DataCell(Text(user.role)),
-                              DataCell(Text(user.department)),
-                              DataCell(Text(user.accessLevel.label)),
-                              DataCell(
-                                StatusBadge(
-                                  label: user.status,
-                                  kind: user.status == 'Ativo'
-                                      ? StatusKind.good
-                                      : StatusKind.neutral,
-                                ),
-                              ),
-                              DataCell(Text(user.lastAccess)),
-                            ],
+                          (r) => DropdownMenuItem(
+                            value: r.name,
+                            child: Text(r.label),
                           ),
                         )
                         .toList(),
+                    onChanged: saving
+                        ? null
+                        : (v) => setDialog(() => role = v!),
                   ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _newUser() async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Novo usuário'),
-        content: const SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                decoration: InputDecoration(labelText: 'Nome completo'),
+                  if (user != null)
+                    SwitchListTile(
+                      title: const Text('Conta ativa'),
+                      value: active,
+                      onChanged: saving
+                          ? null
+                          : (v) => setDialog(() => active = v),
+                    ),
+                  if (error != null)
+                    Text(error!, style: const TextStyle(color: Colors.red)),
+                ],
               ),
-              SizedBox(height: 12),
-              TextField(
-                decoration: InputDecoration(labelText: 'Matrícula ou e-mail'),
-              ),
-              SizedBox(height: 12),
-              TextField(decoration: InputDecoration(labelText: 'Cargo')),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(this.context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Cadastro visual concluído. A persistência será conectada à API.',
-                  ),
-                ),
-              );
-            },
-            child: const Text('Criar usuário'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UserCard extends StatelessWidget {
-  const _UserCard({required this.user});
-  final AppUser user;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 13),
-    decoration: const BoxDecoration(
-      border: Border(bottom: BorderSide(color: AppColors.line)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          backgroundColor: AppColors.greenLight,
-          child: Text(
-            _initials(user.name),
-            style: const TextStyle(
-              color: AppColors.greenDark,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      setDialog(() {
+                        saving = true;
+                        error = null;
+                      });
+                      try {
+                        final body = {
+                          'name': name.text,
+                          'email': email.text,
+                          'identifier': identifier.text,
+                          'password': password.text,
+                          'jobTitle': job.text,
+                          'department': department.text,
+                          'accessLevel': role,
+                          'active': active,
+                        };
+                        final dio = ref.read(apiClientProvider).dio;
+                        if (user == null) {
+                          await dio.post<void>('users', data: body);
+                        } else {
+                          await dio.patch<void>(
+                            'users/${user['id']}',
+                            data: body,
+                          );
+                        }
+                        ref.invalidate(remoteProvider('users'));
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          setDialog(() {
+                            saving = false;
+                            error = apiError(e);
+                          });
+                        }
+                      }
+                    },
+              child: Text(saving ? 'Salvando...' : 'Salvar'),
+            ),
+          ],
         ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user.name,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                '${user.role} • ${user.department}',
-                style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                user.identifier,
-                style: const TextStyle(color: AppColors.muted, fontSize: 11),
-              ),
-            ],
-          ),
-        ),
-        StatusBadge(
-          label: user.status,
-          kind: user.status == 'Ativo' ? StatusKind.good : StatusKind.neutral,
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+    // Dialog closing animation may still reference these controllers.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    for (final c in [name, email, identifier, job, department, password]) {
+      c.dispose();
+    }
+  }
 }
-
-String _initials(String name) =>
-    name.split(' ').take(2).map((part) => part[0]).join();

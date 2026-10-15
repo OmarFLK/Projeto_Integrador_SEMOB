@@ -32,7 +32,10 @@ class AnalyticsLineChart extends StatelessWidget {
     final allValues = series.expand((item) => item.values);
     final maximum = allValues.isEmpty
         ? 1.0
-        : allValues.reduce((a, b) => a > b ? a : b) * 1.12;
+        : allValues
+                  .reduce((a, b) => a > b ? a : b)
+                  .clamp(1.0, double.infinity) *
+              1.12;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -140,7 +143,10 @@ class AnalyticsBarChart extends StatelessWidget {
     final allValues = series.expand((item) => item.values);
     final maximum = allValues.isEmpty
         ? 1.0
-        : allValues.reduce((a, b) => a > b ? a : b) * 1.15;
+        : allValues
+                  .reduce((a, b) => a > b ? a : b)
+                  .clamp(1.0, double.infinity) *
+              1.15;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

@@ -32,6 +32,35 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+# Private transport reports, database files, exports and backups stay local.
+backend/data/
+**/backups/
+**/*.sqlite*
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/*.sembast*
+**/*.dump
+**/*.bak
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/key.properties
+**/credentials.json
+**/*service-account*.json
+**/.aws/
+**/.ssh/
+**/.vercel/
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+integrations/ia/
 
 # Symbolication related
 app.*.symbols

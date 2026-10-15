@@ -1,0 +1,52 @@
+name: Verify SEMOB
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: semob_test
+          POSTGRES_PASSWORD: semob_ci_password
+          POSTGRES_DB: postgres
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U semob_test -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+      mongo:
+        image: mongo:8.0.32
+        ports: [27017:27017]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Reject private data and secret files
+        shell: pwsh
+        run: ./scripts/verify_publishable.ps1
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub
+      - run: dart pub get --enforce-lockfile
+        working-directory: backend
+      - run: dart analyze
+        working-directory: backend
+      - run: dart test
+        working-directory: backend
+        env:
+          SEMOB_TEST_MONGODB_URI: mongodb://127.0.0.1:27017
+          SEMOB_TEST_DATABASE_URL: postgresql://semob_test:semob_ci_password@127.0.0.1:5432/postgres?sslmode=disable
+      - run: dart build cli --target bin/server.dart
+        working-directory: backend
+      - run: flutter build web --release --no-pub --dart-define=API_BASE_URL=https://api.semob.example/api/v1/
+      - run: docker build -t semob-api:ci ./backend

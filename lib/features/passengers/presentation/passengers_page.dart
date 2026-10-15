@@ -8,6 +8,7 @@ import '../../../models/transport_models.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/analytics_charts.dart';
 import '../../../shared/widgets/global_filter_bar.dart';
+import '../../../shared/widgets/coverage_notice.dart';
 import '../../../shared/widgets/page_components.dart';
 
 class PassengersPage extends ConsumerWidget {
@@ -24,11 +25,7 @@ class PassengersPage extends ConsumerWidget {
           action: const GlobalFilterBar(),
         ),
         const SizedBox(height: 16),
-        const DataSourceNote(
-          provisional: true,
-          text:
-              'Os dados de passageiros são provisórios e atualizados conforme o sistema de bilhetagem, segundo o relatório de origem.',
-        ),
+        const CoverageNotice(),
         const SizedBox(height: 16),
         AsyncContent<PassengerDay>(
           value: passengers,
@@ -60,28 +57,24 @@ class _PassengersContent extends StatelessWidget {
               label: 'Total de passageiros',
               value: Formatters.integer(total),
               icon: Icons.groups_2_outlined,
-              change: '+114,5%',
-              helper: 'vs. julho/2026',
+              helper: 'Total do período selecionado',
             ),
             MetricCard(
               label: 'Catraca',
               value: Formatters.integer(turnstile),
               icon: Icons.sensor_door_outlined,
-              change: '21,8%',
               helper: 'do total',
             ),
             MetricCard(
               label: 'Antecipados',
               value: Formatters.integer(advance),
               icon: Icons.credit_card_outlined,
-              change: '5,7%',
               helper: 'do total',
             ),
             MetricCard(
               label: 'Não pagantes',
               value: Formatters.integer(nonPaying),
               icon: Icons.accessible_forward_outlined,
-              change: '72,5%',
               positive: false,
               helper: 'do total provisório',
             ),
@@ -126,14 +119,14 @@ class _PassengersContent extends StatelessWidget {
                   icon: Icons.trending_up_rounded,
                   title: 'Maior demanda',
                   value:
-                      '${peak.day.toString().padLeft(2, '0')}/08 • ${Formatters.integer(peak.total)} passageiros',
+                      '${peak.day.toString().padLeft(2, '0')} • ${Formatters.integer(peak.total)} passageiros',
                 ),
                 const SizedBox(height: 10),
                 _DemandHighlight(
                   icon: Icons.percent_rounded,
                   title: 'Não pagantes',
                   value:
-                      '${Formatters.percent(nonPaying / total * 100)} do total',
+                      '${Formatters.percent(total == 0 ? 0 : nonPaying / total * 100)} do total',
                 ),
                 const SizedBox(height: 10),
                 const _DemandHighlight(
@@ -174,7 +167,12 @@ class _StackedPassengerChart extends StatelessWidget {
           height: 270,
           child: BarChart(
             BarChartData(
-              maxY: 52000,
+              maxY:
+                  data.fold<double>(
+                    1,
+                    (m, r) => r.total > m ? r.total.toDouble() : m,
+                  ) *
+                  1.1,
               borderData: FlBorderData(show: false),
               gridData: FlGridData(
                 drawVerticalLine: false,

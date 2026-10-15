@@ -5,32 +5,44 @@ import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/transport_models.dart';
+import '../providers/app_providers.dart';
 
-class PageBody extends StatelessWidget {
+class PageBody extends ConsumerWidget {
   const PageBody({super.key, required this.children, this.maxWidth = 1600});
 
   final List<Widget> children;
   final double maxWidth;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final mobile = AppBreakpoints.isMobile(context);
-    return SelectionArea(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          mobile ? AppSpacing.md : AppSpacing.lg,
-          mobile ? AppSpacing.md : AppSpacing.lg,
-          mobile ? AppSpacing.md : AppSpacing.lg,
-          mobile ? 96 : AppSpacing.xl,
-        ),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
-            ),
+    final compact = ref.watch(preferencesProvider).value?['compact'] == true;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        compact
+            ? AppSpacing.sm
+            : mobile
+            ? AppSpacing.md
+            : AppSpacing.lg,
+        compact
+            ? AppSpacing.sm
+            : mobile
+            ? AppSpacing.md
+            : AppSpacing.lg,
+        compact
+            ? AppSpacing.sm
+            : mobile
+            ? AppSpacing.md
+            : AppSpacing.lg,
+        mobile ? 96 : AppSpacing.xl,
+      ),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
           ),
         ),
       ),
@@ -322,7 +334,7 @@ class DataSourceNote extends StatelessWidget {
   const DataSourceNote({
     super.key,
     this.text =
-        'Fonte: relatórios SmartData fornecidos pela SEMOB • Agosto de 2026',
+        'Fonte: relatórios SmartData fornecidos pela SEMOB • período selecionado',
     this.provisional = false,
   });
 

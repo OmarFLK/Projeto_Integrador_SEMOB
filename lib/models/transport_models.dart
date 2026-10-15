@@ -11,6 +11,7 @@ extension TripStatusLabel on TripStatus {
 
 class OperationDay {
   const OperationDay({
+    this.date = '',
     required this.day,
     required this.weekday,
     required this.vehicles,
@@ -22,6 +23,7 @@ class OperationDay {
   });
 
   final int day;
+  final String date;
   final String weekday;
   final int vehicles;
   final int maxVehiclesInRange;
@@ -30,12 +32,25 @@ class OperationDay {
   final double productiveKm;
   final double unproductiveKm;
 
+  factory OperationDay.fromJson(Map<String, dynamic> json) => OperationDay(
+    date: json['date'] as String? ?? '',
+    day: json['day'] as int,
+    weekday: json['weekday'] as String,
+    vehicles: json['vehicles'] as int,
+    maxVehiclesInRange: json['maxVehiclesInRange'] as int,
+    scheduledTrips: json['scheduledTrips'] as int,
+    completedTrips: json['completedTrips'] as int,
+    productiveKm: (json['productiveKm'] as num).toDouble(),
+    unproductiveKm: (json['unproductiveKm'] as num).toDouble(),
+  );
+
   int get tripDifference => scheduledTrips - completedTrips;
   double get totalKm => productiveKm + unproductiveKm;
 }
 
 class PassengerDay {
   const PassengerDay({
+    this.date = '',
     required this.day,
     required this.turnstile,
     required this.advance,
@@ -43,9 +58,18 @@ class PassengerDay {
   });
 
   final int day;
+  final String date;
   final int turnstile;
   final int advance;
   final int nonPaying;
+
+  factory PassengerDay.fromJson(Map<String, dynamic> json) => PassengerDay(
+    date: json['date'] as String? ?? '',
+    day: json['day'] as int,
+    turnstile: json['turnstile'] as int,
+    advance: json['advance'] as int,
+    nonPaying: json['nonPaying'] as int,
+  );
 
   int get paying => turnstile + advance;
   int get total => paying + nonPaying;
@@ -63,6 +87,13 @@ class LineSummary {
   final int trips;
   final double totalKm;
   final double performance;
+
+  factory LineSummary.fromJson(Map<String, dynamic> json) => LineSummary(
+    code: json['code'] as String,
+    trips: (json['trips'] as num).round(),
+    totalKm: (json['totalKm'] as num).toDouble(),
+    performance: (json['performance'] as num).toDouble(),
+  );
 }
 
 class TripRecord {
@@ -92,6 +123,23 @@ class TripRecord {
   final double unproductiveKm;
   final TripStatus status;
 
+  factory TripRecord.fromJson(Map<String, dynamic> json) => TripRecord(
+    date: json['date'] as String,
+    line: json['line'] as String,
+    vehicle: json['vehicle'] as String,
+    activity: json['activity'] as String,
+    direction: json['direction'] as String,
+    timeRange: json['timeRange'] as String,
+    start: json['start'] as String,
+    end: json['end'] as String,
+    productiveKm: (json['productiveKm'] as num).toDouble(),
+    unproductiveKm: (json['unproductiveKm'] as num).toDouble(),
+    status: TripStatus.values.firstWhere(
+      (status) => status.name == json['status'],
+      orElse: () => TripStatus.completed,
+    ),
+  );
+
   double get totalKm => productiveKm + unproductiveKm;
 }
 
@@ -113,18 +161,40 @@ class VehicleSummary {
   final String firstRecord;
   final String lastRecord;
   final String status;
+
+  factory VehicleSummary.fromJson(Map<String, dynamic> json) => VehicleSummary(
+    prefix: json['prefix'] as String,
+    lines: (json['lines'] as List).cast<String>(),
+    trips: (json['trips'] as num).round(),
+    totalKm: (json['totalKm'] as num).toDouble(),
+    firstRecord: json['firstRecord'] as String,
+    lastRecord: json['lastRecord'] as String,
+    status: json['status'] as String,
+  );
 }
 
 class FinancialDay {
   const FinancialDay({
+    this.date = '',
+    this.incomplete = false,
     required this.day,
     required this.transferredCredits,
     required this.finalBalance,
   });
 
   final int day;
+  final String date;
+  final bool incomplete;
   final double transferredCredits;
   final double finalBalance;
+
+  factory FinancialDay.fromJson(Map<String, dynamic> json) => FinancialDay(
+    date: json['date'] as String? ?? '',
+    incomplete: json['incomplete'] == true,
+    day: json['day'] as int,
+    transferredCredits: (json['transferredCredits'] as num).toDouble(),
+    finalBalance: (json['finalBalance'] as num).toDouble(),
+  );
 }
 
 enum AnomalyLevel { critical, attention, information }
@@ -145,11 +215,23 @@ class AnomalyRecord {
   final String? vehicle;
   final String description;
   final String metric;
+
+  factory AnomalyRecord.fromJson(Map<String, dynamic> json) => AnomalyRecord(
+    level: AnomalyLevel.values.firstWhere(
+      (level) => level.name == json['level'],
+      orElse: () => AnomalyLevel.information,
+    ),
+    date: json['date'] as String,
+    line: json['line'] as String,
+    vehicle: json['vehicle'] as String?,
+    description: json['description'] as String,
+    metric: json['metric'] as String,
+  );
 }
 
 class GlobalFilters {
   const GlobalFilters({
-    this.period = 'Agosto de 2026',
+    this.period = '2026-08',
     this.line = 'Todas as linhas',
     this.vehicle = 'Todos os veículos',
     this.direction = 'Todos os sentidos',
@@ -177,4 +259,27 @@ class GlobalFilters {
       timeRange: timeRange ?? this.timeRange,
     );
   }
+
+  Map<String, String> query({bool dimensions = true}) => {
+    'period': period,
+    if (dimensions && line != 'Todas as linhas')
+      'line': line.replaceFirst('Linha ', ''),
+    if (dimensions && vehicle != 'Todos os veículos') 'vehicle': vehicle,
+    if (dimensions && direction != 'Todos os sentidos') 'direction': direction,
+    if (dimensions && timeRange != 'Todas as faixas') 'timeRange': timeRange,
+  };
+}
+
+class TripPage {
+  const TripPage(this.items, this.total, this.offset, this.limit);
+  final List<TripRecord> items;
+  final int total, offset, limit;
+  factory TripPage.fromJson(Map<String, dynamic> json) => TripPage(
+    (json['items'] as List)
+        .map((r) => TripRecord.fromJson(Map<String, dynamic>.from(r as Map)))
+        .toList(),
+    json['total'] as int,
+    json['offset'] as int,
+    json['limit'] as int,
+  );
 }

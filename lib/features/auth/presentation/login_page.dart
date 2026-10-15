@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/brand_mark.dart';
 import 'auth_controller.dart';
+import 'password_recovery_dialog.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key, this.sessionExpired = false});
@@ -16,10 +18,8 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  final _identifierController = TextEditingController(
-    text: 'admin@semob.sp.gov.br',
-  );
-  final _passwordController = TextEditingController(text: 'semob2026');
+  final _identifierController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -152,8 +152,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SizedBox(height: 16),
                           ElevatedButton(
                             key: const Key('login_submit'),
-                            onPressed: auth.isLoading ? null : _submit,
-                            child: auth.isLoading
+                            onPressed: auth.isLoading || auth.initializing
+                                ? null
+                                : _submit,
+                            child: auth.isLoading || auth.initializing
                                 ? const SizedBox(
                                     width: 21,
                                     height: 21,
@@ -163,24 +165,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                     ),
                                   )
                                 : const Text('Entrar'),
-                          ),
-                          const SizedBox(height: 18),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppColors.canvas,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.line),
-                            ),
-                            child: const Text(
-                              'Ambiente demonstrativo\nadmin@semob.sp.gov.br  •  semob2026',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 11.5,
-                                height: 1.5,
-                              ),
-                            ),
                           ),
                           const SizedBox(height: 28),
                           const Text(
@@ -212,21 +196,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _showPasswordRecovery() async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Recuperar acesso'),
-        content: const Text(
-          'Entre em contato com o administrador do sistema ou com o suporte de TI da SEMOB para redefinir sua senha.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Entendi'),
-          ),
-        ],
-      ),
-    );
+    await showPasswordRecoveryDialog(context, ref.read(apiClientProvider));
   }
 }
 
@@ -235,69 +205,53 @@ class _InstitutionalPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: AppColors.charcoal,
-      child: Stack(
-        children: [
-          Positioned(
-            right: -70,
-            bottom: -90,
-            child: Icon(
-              Icons.route_rounded,
-              size: 420,
-              color: AppColors.white.withValues(alpha: 0.035),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset('assets/images/login_bus.png', fit: BoxFit.cover),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              stops: [0, 0.58, 1],
+              colors: [Color(0xC914211B), Color(0x5214211B), AppColors.white],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(56),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const BrandMark(onDark: true),
-                const Spacer(),
-                Container(width: 54, height: 4, color: AppColors.green),
-                const SizedBox(height: 24),
-                const Text(
-                  'Informação clara para\numa mobilidade melhor.',
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w700,
-                    height: 1.18,
-                  ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(56, 52, 96, 56),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const BrandMark(onDark: true),
+              const Spacer(),
+              const Text(
+                'SEMOB',
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                  height: 1,
                 ),
-                const SizedBox(height: 16),
-                const SizedBox(
-                  width: 480,
-                  child: Text(
-                    'Acompanhe viagens, quilometragem, passageiros e indicadores operacionais em um único ambiente.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 15,
-                      height: 1.55,
-                    ),
-                  ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'São Caetano do Sul',
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0,
                 ),
-                const Spacer(),
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      color: Colors.white54,
-                      size: 18,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Ambiente interno e seguro',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 22),
+              Container(width: 58, height: 4, color: AppColors.green),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -313,6 +267,8 @@ class _LoginAlert extends StatelessWidget {
       AuthError.requiredFields => 'Preencha o acesso e a senha para continuar.',
       AuthError.invalidCredentials =>
         'Credenciais inválidas. Confira os dados e tente novamente.',
+      AuthError.serviceUnavailable =>
+        'Não foi possível entrar. Verifique a conexão e tente novamente.',
       AuthError.sessionExpired =>
         'Sua sessão expirou. Entre novamente para continuar.',
     };

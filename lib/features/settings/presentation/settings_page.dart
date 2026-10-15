@@ -1,85 +1,52 @@
 import 'package:flutter/material.dart';
-
-import '../../../core/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../services/api_client.dart';
+import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/page_components.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<SettingsPage> {
-  bool _alerts = true;
-  bool _weekly = true;
-  bool _compact = false;
-
-  @override
-  Widget build(BuildContext context) => PageBody(
+  Widget build(BuildContext context, WidgetRef ref) => PageBody(
     children: [
       const PageHeader(
         title: 'Configurações',
-        subtitle: 'Preferências locais da experiência do portal',
+        subtitle: 'Preferências da sua conta',
       ),
       const SizedBox(height: 16),
-      TwoColumnLayout(
-        left: SectionCard(
-          title: 'Notificações',
-          child: Column(
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Alertas operacionais'),
-                subtitle: const Text(
-                  'Avisos de viagens não realizadas e anomalias',
-                ),
-                value: _alerts,
-                onChanged: (value) => setState(() => _alerts = value),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Resumo semanal'),
-                subtitle: const Text('Receber um consolidado da operação'),
-                value: _weekly,
-                onChanged: (value) => setState(() => _weekly = value),
-              ),
-            ],
-          ),
-        ),
-        right: SectionCard(
-          title: 'Aparência',
-          child: Column(
-            children: [
-              SwitchListTile(
+      ref
+          .watch(preferencesProvider)
+          .when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => TextButton(
+              onPressed: () => ref.invalidate(preferencesProvider),
+              child: const Text('Recarregar preferências'),
+            ),
+            data: (prefs) => SectionCard(
+              title: 'Aparência',
+              child: SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Modo compacto'),
-                subtitle: const Text(
-                  'Reduzir o espaçamento de tabelas e painéis',
-                ),
-                value: _compact,
-                onChanged: (value) => setState(() => _compact = value),
+                subtitle: const Text('Reduz o espaçamento das páginas'),
+                value: prefs['compact'] == true,
+                onChanged: (value) async {
+                  try {
+                    await ref
+                        .read(apiClientProvider)
+                        .dio
+                        .put<void>('preferences', data: {'compact': value});
+                    ref.invalidate(preferencesProvider);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(apiError(e))));
+                    }
+                  }
+                },
               ),
-              const ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.language, color: AppColors.green),
-                title: Text('Idioma'),
-                subtitle: Text('Português (Brasil)'),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      Align(
-        alignment: Alignment.centerRight,
-        child: ElevatedButton.icon(
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Preferências salvas localmente.')),
-          ),
-          icon: const Icon(Icons.save_outlined, size: 18),
-          label: const Text('Salvar preferências'),
-        ),
-      ),
     ],
   );
 }

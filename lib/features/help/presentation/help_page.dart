@@ -1,153 +1,43 @@
 import 'package:flutter/material.dart';
-
-import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/page_components.dart';
 
 class HelpPage extends StatelessWidget {
   const HelpPage({super.key});
-
   @override
-  Widget build(BuildContext context) => PageBody(
+  Widget build(BuildContext context) => const PageBody(
     children: [
-      const PageHeader(
+      PageHeader(
         title: 'Ajuda',
-        subtitle: 'Orientações rápidas para usar o Portal SEMOB',
+        subtitle: 'Orientações para consultar e atualizar o portal',
       ),
-      const SizedBox(height: 16),
-      const TwoColumnLayout(
-        left: SectionCard(
-          title: 'Primeiros passos',
-          child: Column(
-            children: [
-              _HelpItem(
-                number: '1',
-                title: 'Escolha o período',
-                description: 'Use os filtros globais para delimitar a análise.',
-              ),
-              _HelpItem(
-                number: '2',
-                title: 'Explore os indicadores',
-                description:
-                    'Abra linhas, veículos e viagens para mais detalhes.',
-              ),
-              _HelpItem(
-                number: '3',
-                title: 'Investigue ocorrências',
-                description:
-                    'A Central de Anomalias reúne os desvios detectados.',
-              ),
-            ],
-          ),
-        ),
-        right: SectionCard(
-          title: 'Suporte',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.mail_outline, color: AppColors.green),
-                title: Text('Suporte de TI'),
-                subtitle: Text('suporte.ti@semob.scs.gov.br'),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.schedule, color: AppColors.green),
-                title: Text('Atendimento'),
-                subtitle: Text('Segunda a sexta, 8h às 18h'),
-              ),
-              DataSourceNote(text: 'Versão demonstrativa do frontend • 2026.2'),
-            ],
-          ),
+      SizedBox(height: 16),
+      SectionCard(
+        title: 'Como consultar',
+        child: Text(
+          'Selecione um período e use os filtros disponíveis em cada tela. Os filtros são oferecidos conforme os campos existentes nas fontes. Viagens tem busca, status e paginação completa. Linhas e veículos possuem consulta detalhada.',
         ),
       ),
-      const SizedBox(height: 12),
-      const SectionCard(
-        title: 'Perguntas frequentes',
-        child: Column(
-          children: [
-            ExpansionTile(
-              title: Text('Os dados são atualizados em tempo real?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'Ainda não. Esta versão usa modelos derivados dos relatórios anexados. A atualização será feita pela API futura.',
-                  ),
-                ),
-              ],
-            ),
-            ExpansionTile(
-              title: Text('Por que passageiros por linha não aparecem?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'O relatório de passageiros disponibilizado possui totais diários do sistema, sem associação direta à linha.',
-                  ),
-                ),
-              ],
-            ),
-            ExpansionTile(
-              title: Text('A IA já está conectada?'),
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Text(
-                    'Não. O Assistente SEMOB apresenta a experiência planejada com respostas mockadas.',
-                  ),
-                ),
-              ],
-            ),
-          ],
+      SizedBox(height: 12),
+      SectionCard(
+        title: 'Cobertura e comparações',
+        child: Text(
+          'Confira quantos dias foram informados antes de comparar períodos. Dia ausente não significa zero. Passageiros são provisórios e a fonte atual não informa demanda por linha, veículo ou horário. Créditos transferidos não representam receita tarifária.',
+        ),
+      ),
+      SizedBox(height: 12),
+      SectionCard(
+        title: 'Importar e exportar',
+        child: Text(
+          'Perfis autorizados encontram a importação na página Relatórios e dados. Use ZIP de HTMLs com as pastas de período originais ou CSV normalizado com os cabeçalhos definidos na documentação. O CSV usa UTF-8 e ponto decimal, sem separador de milhar. Exportações PDF são limitadas a 5.000 registros; para volumes maiores use CSV.',
+        ),
+      ),
+      SizedBox(height: 12),
+      SectionCard(
+        title: 'Assistente e acesso',
+        child: Text(
+          'O assistente chama a API institucional quando a integração está configurada. Respostas incluem contexto e fontes. Se o serviço estiver indisponível, o portal apresenta o erro. Para cadastro, alteração de perfil ou indisponibilidade de recuperação, procure a administração do portal.',
         ),
       ),
     ],
-  );
-}
-
-class _HelpItem extends StatelessWidget {
-  const _HelpItem({
-    required this.number,
-    required this.title,
-    required this.description,
-  });
-  final String number;
-  final String title;
-  final String description;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: AppColors.greenLight,
-          child: Text(
-            number,
-            style: const TextStyle(
-              color: AppColors.greenDark,
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-            ),
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(
-                description,
-                style: const TextStyle(color: AppColors.muted, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
   );
 }

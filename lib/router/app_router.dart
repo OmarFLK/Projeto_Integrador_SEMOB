@@ -28,13 +28,24 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authenticated = ref.watch(
     authProvider.select((state) => state.isAuthenticated),
   );
+  final user = ref.watch(authProvider.select((s) => s.user));
+  final initializing = ref.watch(authProvider.select((s) => s.initializing));
 
   return GoRouter(
     initialLocation: '/login',
     redirect: (context, state) {
+      if (initializing) return null;
       final atLogin = state.matchedLocation == '/login';
       if (!authenticated && !atLogin) return '/login';
       if (authenticated && atLogin) return '/dashboard';
+      final permission = switch (state.uri.path) {
+        '/users' => 'users',
+        '/financial' => 'financial',
+        '/reports' => 'export',
+        '/assistant' => 'assistant',
+        _ => 'read',
+      };
+      if (authenticated && user?.can(permission) != true) return '/dashboard';
       return null;
     },
     errorBuilder: (context, state) =>

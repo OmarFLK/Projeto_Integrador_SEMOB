@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../models/transport_models.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../services/api_client.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/analytics_charts.dart';
 import '../../../shared/widgets/page_components.dart';
@@ -12,218 +12,172 @@ import '../../../shared/widgets/page_components.dart';
 class LineDetailPage extends ConsumerWidget {
   const LineDetailPage({super.key, required this.lineCode});
   final String lineCode;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lines = ref.watch(linesProvider);
-    final vehicles = ref.watch(vehiclesProvider);
-    final trips = ref.watch(tripsProvider);
+    final p = ref.watch(globalFiltersProvider).period;
+    final lines = ref.watch(remoteProvider('lines?period=$p'));
+    final history = ref.watch(
+      remoteProvider('line-history?period=$p&line=$lineCode'),
+    );
+    final anomalies = ref.watch(
+      remoteProvider('anomalies?period=$p&line=$lineCode'),
+    );
+    final trips = ref.watch(
+      tripPageProvider(
+        Uri(
+          queryParameters: {
+            'period': p,
+            'line': lineCode,
+            'limit': '50',
+            'order': 'desc',
+          },
+        ).query,
+      ),
+    );
+    final vehicles = ref.watch(
+      remoteProvider('vehicles?period=$p&line=$lineCode'),
+    );
     return PageBody(
       children: [
         PageHeader(
           title: 'Linha $lineCode',
-          subtitle: 'Detalhes operacionais e registros relacionados',
-          action: OutlinedButton.icon(
+          subtitle: 'Período $p',
+          action: OutlinedButton(
             onPressed: () => context.go('/lines'),
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('Voltar às linhas'),
+            child: const Text('Voltar às linhas'),
           ),
         ),
         const SizedBox(height: 16),
-        const DataSourceNote(),
-        const SizedBox(height: 16),
         lines.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Erro ao carregar: $error'),
-          data: (items) {
-            final line = items
-                .where((item) => item.code == lineCode)
-                .firstOrNull;
+          loading: () => const LinearProgressIndicator(),
+          error: (e, s) => Text(apiError(e)),
+          data: (value) {
+            final records = (value as List).map(
+              (r) => LineSummary.fromJson(Map<String, dynamic>.from(r as Map)),
+            );
+            final line = records.where((r) => r.code == lineCode).firstOrNull;
             if (line == null) {
-              return const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('Linha não encontrada.'),
-                ),
-              );
+              return const Text('Linha não encontrada neste período.');
             }
-            final relatedVehicles =
-                vehicles.value
-                    ?.where((item) => item.lines.contains(lineCode))
-                    .toList() ??
-                const <VehicleSummary>[];
-            final relatedTrips =
-                trips.value?.where((item) => item.line == lineCode).toList() ??
-                const <TripRecord>[];
-            return _LineDetailContent(
-              line: line,
-              allLines: items,
-              vehicles: relatedVehicles,
-              trips: relatedTrips,
+            return MetricsGrid(
+              children: [
+                MetricCard(
+                  label: 'Viagens consolidadas',
+                  value: Formatters.integer(line.trips),
+                  icon: Icons.route,
+                ),
+                MetricCard(
+                  label: 'Km total',
+                  value: Formatters.decimal(line.totalKm),
+                  icon: Icons.map,
+                ),
+                MetricCard(
+                  label: 'Participação nas viagens',
+                  value: Formatters.percent(line.performance),
+                  icon: Icons.pie_chart,
+                ),
+                const MetricCard(
+                  label: 'Passageiros por linha',
+                  value: 'Indisponível',
+                  icon: Icons.groups,
+                  helper: 'Fonte não relaciona passageiros à linha',
+                ),
+              ],
             );
           },
         ),
-      ],
-    );
-  }
-}
-
-class _LineDetailContent extends StatelessWidget {
-  const _LineDetailContent({
-    required this.line,
-    required this.allLines,
-    required this.vehicles,
-    required this.trips,
-  });
-  final LineSummary line;
-  final List<LineSummary> allLines;
-  final List<VehicleSummary> vehicles;
-  final List<TripRecord> trips;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MetricsGrid(
-          children: [
-            MetricCard(
-              label: 'Viagens',
-              value: Formatters.integer(line.trips),
-              icon: Icons.alt_route_rounded,
-            ),
-            MetricCard(
-              label: 'Quilometragem',
-              value: '${Formatters.decimal(line.totalKm)} km',
-              icon: Icons.route_outlined,
-            ),
-            MetricCard(
-              label: 'Desempenho',
-              value: Formatters.percent(line.performance),
-              icon: Icons.speed_rounded,
-            ),
-            MetricCard(
-              label: 'Passageiros',
-              value: 'Não disponível',
-              icon: Icons.groups_2_outlined,
-              helper: 'Fonte não segmentada por linha',
-            ),
-          ],
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Evolução diária de viagens',
+          child: history.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => Text(apiError(e)),
+            data: (value) {
+              final rows = (value as List).cast<Map>();
+              if (rows.isEmpty) return const Text('Sem registros.');
+              return AnalyticsBarChart(
+                labels: rows
+                    .map((r) => (r['date'] as String).substring(8))
+                    .toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Viagens',
+                    values: rows
+                        .map((r) => (r['trips'] as num).toDouble())
+                        .toList(),
+                    color: AppColors.green,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
-        const SizedBox(height: 12),
-        TwoColumnLayout(
-          leftFlex: 2,
-          rightFlex: 1,
-          left: SectionCard(
-            title: 'Comparativo com a rede',
-            subtitle: 'Viagens consolidadas por linha no mês',
-            child: AnalyticsBarChart(
-              labels: allLines.map((item) => item.code).toList(),
-              series: [
-                ChartSeries(
-                  name: 'Viagens',
-                  values: allLines
-                      .map((item) => item.trips.toDouble())
-                      .toList(),
-                  color: AppColors.green,
-                ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Veículos registrados',
+          child: vehicles.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => Text(apiError(e)),
+            data: (value) => Wrap(
+              spacing: 8,
+              children: [
+                for (final v in value as List)
+                  ActionChip(
+                    label: Text(v['prefix'] as String),
+                    onPressed: () => context.go('/fleet/${v['prefix']}'),
+                  ),
               ],
             ),
           ),
-          right: SectionCard(
-            title: 'Veículos utilizados',
-            subtitle: 'Prefixos identificados na amostra consolidada',
-            child: vehicles.isEmpty
-                ? const _Unavailable(text: 'Sem prefixos na amostra reduzida.')
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: vehicles
-                        .map((item) => Chip(label: Text(item.prefix)))
-                        .toList(),
-                  ),
-          ),
         ),
-        const SizedBox(height: 12),
-        TwoColumnLayout(
-          left: SectionCard(
-            title: 'Viagens da amostra',
-            subtitle: 'Sentido, faixa horária e horários realizados',
-            child: trips.isEmpty
-                ? const _Unavailable(
-                    text: 'Sem viagens desta linha na amostra reduzida.',
-                  )
-                : Column(
-                    children: trips
-                        .take(5)
-                        .map(
-                          (trip) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: const Icon(
-                              Icons.route_outlined,
-                              color: AppColors.green,
-                            ),
-                            title: Text('${trip.date} • ${trip.direction}'),
-                            subtitle: Text(
-                              '${trip.timeRange} • ${trip.start} → ${trip.end}',
-                            ),
-                            trailing: StatusBadge(
-                              label: trip.status.label,
-                              kind: tripStatusKind(trip.status),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Registros recentes',
+          subtitle: 'Primeira página, até 50 registros',
+          trailing: TextButton(
+            onPressed: () {
+              ref
+                  .read(globalFiltersProvider.notifier)
+                  .update(GlobalFilters(period: p, line: lineCode));
+              context.go('/trips');
+            },
+            child: const Text('Consultar todas'),
           ),
-          right: const SectionCard(
-            title: 'Evolução e passageiros',
-            subtitle: 'Componente preparado para a API analítica',
-            child: _Unavailable(
-              text:
-                  'A fonte atual não relaciona passageiros a uma linha. A série diária completa será conectada ao backend.',
+          child: trips.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => Text(apiError(e)),
+            data: (page) => Column(
+              children: [
+                Text('${page.total} registros encontrados'),
+                for (final t in page.items)
+                  ListTile(
+                    title: Text('${t.date} • ${t.vehicle} • ${t.status.label}'),
+                    subtitle: Text('${t.direction} • ${t.start} → ${t.end}'),
+                  ),
+              ],
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        const SectionCard(
+        const SizedBox(height: 16),
+        SectionCard(
           title: 'Ocorrências da linha',
-          child: _Unavailable(
-            text:
-                'Nenhuma ocorrência adicional encontrada na amostra selecionada.',
+          child: anomalies.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => Text(apiError(e)),
+            data: (value) => Column(
+              children: [
+                if ((value as List).isEmpty)
+                  const Text('Nenhuma ocorrência registrada no período.'),
+                for (final a in value)
+                  ListTile(
+                    title: Text(a['description'] as String),
+                    subtitle: Text(a['date'] as String),
+                  ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
-}
-
-class _Unavailable extends StatelessWidget {
-  const _Unavailable({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: AppColors.canvas,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.info_outline, color: AppColors.muted, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

@@ -1,660 +1,106 @@
-<div align="center">
+# Portal de Operação de Transporte — SEMOB
 
-# 🚌 Portal de Operação de Transporte
+Aplicação Flutter para consultar operação, viagens, passageiros, linhas, frota e financeiro da SEMOB de São Caetano do Sul. Backend Dart/Shelf com autenticação e **dois bancos separados: relacional para usuários e não relacional para transporte**.
 
-### SEMOB — São Caetano do Sul
+![Login do portal](screenshots/login-desktop.png)
 
-Frontend multiplataforma para acompanhamento da operação do transporte público municipal.
-
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
-[![Dart](https://img.shields.io/badge/Dart-3.12%2B-0175C2?logo=dart&logoColor=white)](https://dart.dev/)
-[![Riverpod](https://img.shields.io/badge/Estado-Riverpod-08783E)](https://riverpod.dev/)
-[![go_router](https://img.shields.io/badge/Navegação-go__router-08783E)](https://pub.dev/packages/go_router)
-[![Tests](https://img.shields.io/badge/Testes-6%20aprovados-08783E)](#qualidade-e-testes)
-[![Status](https://img.shields.io/badge/Status-Frontend%20funcional-08783E)](#status-do-projeto)
-
-**Web · Windows · Android · Desktop · Tablet · Mobile**
-
-</div>
-
----
-
-![Tela de login do Portal SEMOB](screenshots/login-desktop.png)
-
-## Sobre o projeto
-
-O **Portal de Operação de Transporte** é uma aplicação interna criada para gestores, analistas, operadores e administradores da Secretaria de Mobilidade Urbana de São Caetano do Sul.
-
-O sistema transforma relatórios operacionais extensos em uma experiência visual, responsiva e navegável. Ele reúne indicadores de viagens, quilometragem, passageiros, linhas, veículos, dados financeiros e ocorrências em um único ambiente.
-
-Esta etapa do projeto prioriza o **frontend, a experiência do usuário e a arquitetura**. Os dados exibidos são mocks derivados dos arquivos reais fornecidos pela SEMOB. Ainda não existem backend, MongoDB, autenticação institucional ou inteligência artificial conectados.
-
-## Sumário
-
-- [Principais funcionalidades](#principais-funcionalidades)
-- [Dados usados no protótipo](#dados-usados-no-protótipo)
-- [Tecnologias](#tecnologias)
-- [Arquitetura](#arquitetura)
-- [Como executar localmente](#como-executar-localmente)
-- [Credenciais de demonstração](#credenciais-de-demonstração)
-- [Execução por plataforma](#execução-por-plataforma)
-- [Rotas e fluxo de navegação](#rotas-e-fluxo-de-navegação)
-- [Responsividade](#responsividade)
-- [Qualidade e testes](#qualidade-e-testes)
-- [Build de produção](#build-de-produção)
-- [Solução de problemas](#solução-de-problemas)
-- [Limitações atuais](#limitações-atuais)
-- [Roadmap](#roadmap)
-- [Equipe](#equipe)
-
-## Principais funcionalidades
-
-### Autenticação interna
-
-- login por e-mail ou matrícula;
-- mostrar e ocultar senha;
-- opção de lembrar acesso;
-- recuperação de senha informativa;
-- estados de carregamento, campos obrigatórios e credenciais inválidas;
-- tratamento visual de sessão expirada;
-- proteção das rotas internas;
-- logout pelo menu de perfil.
-
-### Visão Geral
-
-- passageiros totais, pagantes e não pagantes;
-- viagens programadas e realizadas;
-- taxa de realização;
-- km total e km produtivo;
-- comparação com o período anterior;
-- passageiros por dia;
-- viagens programadas versus realizadas;
-- quilometragem produtiva, improdutiva e total;
-- distribuição de passageiros;
-- desempenho consolidado por linha.
-
-### Operação e viagens
-
-- veículos utilizados por dia;
-- cumprimento da programação;
-- dias com diferença entre viagens programadas e realizadas;
-- busca por linha, veículo ou atividade;
-- filtros por status;
-- ordenação e paginação;
-- visualização em tabela no desktop;
-- visualização em cards no mobile;
-- ações visuais de exportação.
-
-### Passageiros
-
-- catraca;
-- antecipados;
-- não pagantes;
-- total diário;
-- composição empilhada por dia;
-- evolução no período;
-- percentual de não pagantes;
-- identificação do dia de maior demanda.
-
-### Linhas e frota
-
-- listagem e busca de linhas;
-- viagens, km total e desempenho;
-- detalhe individual da linha;
-- listagem de prefixos identificados nas viagens;
-- linhas atendidas por veículo;
-- viagens e quilometragem por prefixo;
-- detalhe individual do veículo.
-
-### Financeiro
-
-- créditos transferidos para cartões;
-- saldo final do sistema;
-- evolução temporal;
-- maior transferência registrada;
-- identificação explícita de campos financeiros ainda indisponíveis.
-
-### Anomalias e insights
-
-- viagens programadas não realizadas;
-- viagens não iniciadas;
-- viagens não terminadas;
-- diferenças diárias de operação;
-- níveis crítico, atenção e informativo;
-- filtros e ação de investigação;
-- insights descritivos comparando julho e agosto de 2026.
-
-### Assistente SEMOB
-
-- interface pronta para futura integração com IA;
-- contexto visual dos filtros selecionados;
-- sugestões de perguntas;
-- respostas demonstrativas com texto, KPI, gráfico e ranking;
-- ações para ver dados, abrir análise, aplicar filtro e exportar;
-- experiência adaptada para desktop e mobile.
-
-### Administração e apoio
-
-- relatórios por domínio;
-- ações visuais para PDF e CSV;
-- usuários e níveis de acesso;
-- busca e filtros de usuários;
-- modal de novo usuário;
-- perfil do funcionário;
-- permissões resumidas;
-- preferências e central de ajuda.
-
-## Dados usados no protótipo
-
-Foram analisados **44 relatórios HTML** contendo dados mensais e quinzenais de julho, agosto e setembro de 2026, além da documentação acadêmica do produto.
-
-### Indicadores consolidados
-
-| Indicador | Julho/2026 | Agosto/2026 |
-|---|---:|---:|
-| Viagens programadas | 36.387 | 35.050 |
-| Viagens realizadas | 36.330 | 34.994 |
-| Km produtivo | 248.321,3 | 261.886,8 |
-| Km improdutivo | 14.425,5 | 13.807,7 |
-| Km total | 262.746,8 | 275.694,5 |
-| Passageiros totais | 489.653 | 1.050.248 |
-
-### Campos encontrados nas fontes
-
-| Domínio | Campos utilizados |
-|---|---|
-| Operação | Data, dia da semana, veículos, máximo por faixa, viagens programadas e realizadas, diferenças e quilometragem |
-| Viagens | Linha, prefixo, atividade, sentido, faixa horária, início, fim e quilometragem |
-| Passageiros | Catraca, antecipados, não pagantes e total de passageiros |
-| Linhas | Código, número de viagens e km total |
-| Frota | Prefixos derivados dos registros de viagens |
-| Financeiro | Créditos transferidos para cartões e saldo final |
-| Ocorrências | Viagens não realizadas, não iniciadas e não terminadas |
-
-> [!IMPORTANT]
-> O relatório de passageiros informa que seus valores são provisórios e atualizados conforme o sistema de bilhetagem. A mesma ressalva aparece na interface.
-
-> [!NOTE]
-> Passageiros por linha, tarifa média e receita tarifária não são apresentados como dados reais porque esses relacionamentos não estão disponíveis nas fontes usadas pelo frontend.
-
-## Tecnologias
-
-| Tecnologia | Responsabilidade |
-|---|---|
-| Flutter | Interface Web, Windows e Android |
-| Dart | Linguagem principal |
-| Riverpod | Estado global, autenticação, filtros e carregamento dos repositórios |
-| go_router | Navegação declarativa e proteção de rotas |
-| Dio | Cliente HTTP preparado para a API futura |
-| fl_chart | Gráficos de linha, barras, barras empilhadas e distribuição |
-| intl | Formatação numérica e monetária em `pt_BR` |
-| Flutter Test | Testes de widgets e responsividade |
-
-## Arquitetura
-
-O frontend foi organizado por funcionalidades, com separação entre interface, modelos, repositórios, serviços, mocks e componentes compartilhados.
-
-```text
-lib/
-├── core/
-│   ├── responsive/       # breakpoints e detecção de layout
-│   ├── theme/            # cores, tema e espaçamento
-│   └── utils/            # formatação de números e moeda
-├── features/
-│   ├── auth/
-│   ├── dashboard/
-│   ├── operation/
-│   ├── trips/
-│   ├── passengers/
-│   ├── lines/
-│   ├── fleet/
-│   ├── financial/
-│   ├── anomalies/
-│   ├── insights/
-│   ├── ai_assistant/
-│   ├── reports/
-│   ├── users/
-│   ├── settings/
-│   └── help/
-├── mocks/                # dados derivados dos relatórios
-├── models/               # modelos do domínio
-├── repositories/         # contrato e repositório mock
-├── router/               # rotas e proteção de sessão
-├── services/             # cliente Dio
-└── shared/               # providers, shell e widgets reutilizáveis
-```
-
-### Fluxo atual
+## Arquitetura implementada
 
 ```mermaid
 flowchart LR
-    UI[Telas Flutter] --> RP[Providers Riverpod]
-    RP --> TR[TransportRepository]
-    TR --> MR[MockTransportRepository]
-    MR --> MD[Mocks derivados dos relatórios]
+  Flutter[Flutter Web / Windows / Android] --> API[API Dart autenticada]
+  API --> Users[(PostgreSQL / Neon: usuários e sessões)]
+  API --> Documents[(MongoDB na nuvem / Sembast local)]
+  HTML[44 HTMLs e novos CSVs/ZIPs] --> Importador[Validação e importação versionada]
+  Importador --> Documents
+  Importador --> CSV[CSVs normalizados e tabelas originais]
+  API --> Bridge[Ponte HTTP para IA institucional]
+  Bridge --> External[API do outro sistema de IA]
 ```
 
-### Fluxo planejado
+- Login real por e-mail ou matrícula, senhas com PBKDF2, sessões revogáveis, perfis e administração de contas.
+- Indicadores calculados sobre o período selecionado; cobertura parcial explicitada, sem o antigo crescimento mensal fixo de passageiros.
+- Viagens com busca, filtros, exceções e paginação remota; detalhes de linhas e veículos consultam seus próprios registros.
+- Relatórios com exportação real em CSV/PDF, modelos de CSV e importação autorizada pela interface.
+- Preferência de modo compacto persistida por usuário.
+- Ponte para a IA externa preparada. **A URL/contrato do sistema existente ainda precisam ser informados para a conexão de produção.** Não há respostas simuladas.
 
-```mermaid
-flowchart LR
-    UI[Telas Flutter] --> RP[Providers Riverpod]
-    RP --> TR[TransportRepository]
-    TR --> AR[ApiTransportRepository]
-    AR --> D[Dio]
-    D --> API[API REST]
-    API --> DB[(MongoDB)]
-```
+## Executar localmente
 
-O contrato `TransportRepository` permite substituir os mocks por requisições reais sem reescrever as telas.
+Requer Flutter/Dart compatíveis com Dart `^3.12.2`. Ambiente validado: Flutter 3.47.7 / Dart 3.13.5. No Windows, o script encontra o SDK no PATH, em `FLUTTER_ROOT` ou em `~/development/flutter`.
 
-## Como executar localmente
-
-### 1. Pré-requisitos
-
-Instale:
-
-- [Git](https://git-scm.com/downloads);
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) no canal estável;
-- Dart compatível com `^3.12.2` — já incluído no Flutter;
-- Google Chrome ou Microsoft Edge para execução Web;
-- Visual Studio com **Desktop development with C++** para Windows;
-- Android Studio e Android SDK para Android.
-
-Confirme a instalação:
+No Windows, o Flutter pode exigir o Modo de Desenvolvedor para criar os links dos plugins durante `pub get`, especialmente para suporte desktop. As dependências foram resolvidas e o build web foi validado nesta máquina; a configuração desse modo no Windows não foi alterada automaticamente.
 
 ```powershell
-flutter --version
-flutter doctor -v
-flutter devices
+$env:DATABASE_URL = Read-Host 'URL PostgreSQL de desenvolvimento (local ou Neon)'
+powershell -ExecutionPolicy Bypass -File .\scripts\run_local.ps1
 ```
 
-O `flutter doctor -v` mostra exatamente quais dependências da sua máquina ainda precisam ser configuradas.
+O script aplica/verifica as migrações e pede a senha inicial somente se o banco estiver vazio. O e-mail inicial padrão é `admin@semob.local`; pode ser alterado por `SEMOB_ADMIN_EMAIL`. **Não existe mais senha de demonstração fixa.** A API abre na porta 8081 e o frontend na 8080. Se configurar `DIRECT_DATABASE_URL`, ela deve apontar ao mesmo banco de `DATABASE_URL`.
 
-### 2. Clonar o repositório
+Execução manual, em dois terminais:
 
 ```powershell
-git clone https://github.com/OmarFLK/Projeto_Integrador_SEMOB.git
-cd Projeto_Integrador_SEMOB
+# Terminal 1 — configure DATABASE_URL e SEMOB_ADMIN_PASSWORD antes do primeiro início.
+cd backend
+dart pub get --enforce-lockfile
+dart run bin/server.dart
 ```
-
-Se o repositório já estiver na sua máquina:
 
 ```powershell
-cd "C:\Users\omars\Documents\Obsidian Vault\ProjetoIntegrador\Projeto_Integrador_SEMOB"
-git pull origin main
+# Terminal 2 — raiz do projeto
+flutter pub get --enforce-lockfile
+flutter run -d edge --web-port 8080 --dart-define=API_BASE_URL=http://127.0.0.1:8081/api/v1/
 ```
 
-### 3. Instalar as dependências
+O gerenciamento usa PostgreSQL via `DATABASE_URL`, local ou Neon. O transporte usa `backend/data/transport.sembast` em desenvolvimento ou MongoDB via `SEMOB_MONGODB_URI` (obrigatório em produção). O antigo `semob.db` não é usado nem apagado. A API local pode importar o ZIP privado se ele estiver disponível. Para produção, importe os dados diretamente no Atlas antes de subir o Render: bancos e relatórios ficam fora do Git e da imagem Docker. Para transferir usuários de `users.sqlite`, consulte o migrador em [TUTORIAL_DEPLOY.md](TUTORIAL_DEPLOY.md), antes de iniciar a API nova.
+
+## Converter os HTMLs para CSV
+
+Coloque o ZIP dos HTMLs em `backend/data/semob_transport_reports.zip` na sua máquina. Toda a pasta de dados é privada e não é publicada no GitHub.
 
 ```powershell
-flutter pub get
+powershell -ExecutionPolicy Bypass -File .\scripts\import_data.ps1
 ```
 
-### 4. Verificar os dispositivos disponíveis
+Saída em `backend/data/exports/`: dez CSVs de domínio, registro das fontes, `manifest.json` e **55 CSVs das tabelas originais** em `raw/`. A importação canônica preserva 91.108 registros de viagens. Os arquivos gerados e bancos são locais e estão no `.gitignore`; podem ser reproduzidos pelo comando. Na interface, Relatórios e dados também oferece CSV normalizado do período e modelos para novos lotes.
+
+CSV não substitui o banco: serve para intercâmbio/exportação; o banco mantém documentos, versões, origem e consultas. O banco de documentos armazena também os CSVs brutos em partes, preservando as tabelas que não prevaleceram no consolidado.
+
+## Qualidade dos dados
+
+- Julho: operação de 31 dias, mas passageiros apenas de 15 a 31/07.
+- Agosto: 31 dias de operação/passageiros; 36.751 registros detalhados e 57 prefixos distintos.
+- Setembro: dados disponíveis até 14/09.
+- Passageiros por linha/veículo/horário não existem na fonte atual. Créditos transferidos não equivalem a receita tarifária.
+- As contagens de atividades detalhadas, viagens normais e exceções têm semânticas diferentes. A interface identifica essa distinção.
+- Prioridade por registro: fonte do mês do fato; mensal sobre quinzenal; correção explícita em CSV prevalece. Em empates entre novos lotes, prevalece a importação mais recente.
+
+## Testes e build
 
 ```powershell
-flutter devices
+flutter analyze --no-pub
+flutter test --no-pub
+flutter build web --release --dart-define=API_BASE_URL=https://SEU-DOMINIO/api/v1/
+cd backend
+dart analyze
+# Configure SEMOB_TEST_DATABASE_URL com PostgreSQL de testes e permissão CREATEDB.
+dart test
+dart build cli --target bin/server.dart
 ```
 
-Exemplo de saída esperada:
+Os testes de identidade exigem `SEMOB_TEST_DATABASE_URL` e criam/removem bancos temporários `semob_test_*`. O teste MongoDB executa quando `SEMOB_TEST_MONGODB_URI` está configurada. Nunca use credenciais de produção nos testes. O CI fornece PostgreSQL/MongoDB, usa dados sintéticos e verifica que arquivos privados não foram versionados. O teste completo dos 44 HTMLs exige o ZIP privado local (ou `SEMOB_TEST_DATA_ARCHIVE`); só esse teste fica ignorado quando a fonte não existe.
 
-```text
-Chrome (web)
-Windows (desktop)
-Android SDK built for x86 (mobile)
-```
+## Deploy e integração com IA
 
-### 5. Executar no navegador
+Siga [TUTORIAL_DEPLOY.md](TUTORIAL_DEPLOY.md) para publicar **Neon + Atlas + Render + Vercel**, transferir o SQLite e preparar o proxy do frontend. [IMPLEMENTACAO_E_DEPLOY.md](IMPLEMENTACAO_E_DEPLOY.md) detalha API, permissões, CSVs e integração com IA. [`.env.example`](.env.example) documenta as variáveis. Somente o Compose lê `.env` automaticamente; Dart/Flutter usam variáveis do processo.
 
 ```powershell
-flutter run -d chrome
+# Preencha os segredos de .env antes de executar. Nenhum recurso externo é contratado.
+docker compose up --build
 ```
 
-O Flutter abrirá uma janela do Chrome automaticamente.
-
-Caso prefira iniciar um servidor Web sem abertura automática:
-
-```powershell
-flutter run -d web-server --web-hostname 127.0.0.1 --web-port 8080
-```
-
-Depois acesse:
-
-```text
-http://127.0.0.1:8080
-```
-
-### 6. Comandos durante a execução
-
-Com o `flutter run` ativo no terminal:
-
-| Tecla | Ação |
-|---|---|
-| `r` | Hot reload — aplica alterações mantendo o estado |
-| `R` | Hot restart — reinicia o estado da aplicação |
-| `h` | Exibe os comandos disponíveis |
-| `q` | Encerra a aplicação |
-
-## Credenciais de demonstração
-
-```text
-Usuário: admin@semob.sp.gov.br
-Senha:   semob2026
-```
-
-O login é local e demonstrativo. Não utilize credenciais reais nesta versão.
-
-## Execução por plataforma
-
-### Web — Chrome
-
-```powershell
-flutter run -d chrome
-```
-
-### Web — servidor local
-
-```powershell
-flutter run -d web-server --web-port 8080
-```
-
-### Windows Desktop
-
-Primeiro habilite o suporte, caso necessário:
-
-```powershell
-flutter config --enable-windows-desktop
-flutter devices
-```
-
-Depois execute:
-
-```powershell
-flutter run -d windows
-```
-
-### Android
-
-1. Abra o Android Studio.
-2. Inicie um emulador pelo **Device Manager** ou conecte um aparelho com depuração USB.
-3. Confirme o dispositivo com `flutter devices`.
-4. Execute usando o identificador exibido.
-
-```powershell
-flutter run -d <id-do-dispositivo>
-```
-
-Exemplo:
-
-```powershell
-flutter run -d emulator-5554
-```
-
-## Rotas e fluxo de navegação
-
-| Rota | Tela | Objetivo |
-|---|---|---|
-| `/login` | Login | Autenticação interna demonstrativa |
-| `/dashboard` | Visão Geral | KPIs e gráficos consolidados |
-| `/operation` | Operação | Cumprimento, frota diária e km |
-| `/trips` | Viagens | Registros detalhados e exceções |
-| `/passengers` | Passageiros | Demanda e categorias de bilhetagem |
-| `/lines` | Linhas | Desempenho por linha |
-| `/lines/:code` | Detalhe da Linha | Informações da linha selecionada |
-| `/fleet` | Frota | Prefixos e uso dos veículos |
-| `/fleet/:prefix` | Detalhe do Veículo | Histórico do prefixo selecionado |
-| `/financial` | Financeiro | Créditos transferidos e saldo |
-| `/anomalies` | Anomalias | Central de ocorrências |
-| `/insights` | Insights | Leituras derivadas dos indicadores |
-| `/assistant` | Assistente SEMOB | Experiência de IA mockada |
-| `/reports` | Relatórios | Visualizações e exportações |
-| `/users` | Usuários e Acessos | Administração visual de usuários |
-| `/profile` | Meu Perfil | Dados e permissões do funcionário |
-| `/settings` | Configurações | Preferências da aplicação |
-| `/help` | Ajuda | Orientações de uso |
-
-```mermaid
-flowchart TD
-    L[Login] --> D[Visão Geral]
-    D --> O[Operação]
-    O --> V[Viagens]
-    D --> P[Passageiros]
-    D --> LI[Linhas]
-    LI --> LD[Detalhe da Linha]
-    D --> F[Frota]
-    F --> FD[Detalhe do Veículo]
-    D --> A[Anomalias]
-    A --> V
-    D --> I[Insights]
-    I --> IA[Assistente SEMOB]
-```
-
-## Responsividade
-
-O projeto não usa apenas um desktop reduzido. Cada faixa possui navegação e comportamento próprios.
-
-| Faixa | Largura | Comportamento |
-|---|---:|---|
-| Mobile | `< 720 px` | Bottom navigation, menu “Mais”, filtros em bottom sheet, cards empilhados e listas no lugar de tabelas |
-| Tablet | `720–1179 px` | Rail lateral recolhido, grids de duas colunas e tabelas adaptadas |
-| Desktop | `≥ 1180 px` | Sidebar completa, topbar, painéis amplos e acesso flutuante ao assistente |
-
-O login possui breakpoint próprio em `980 px`, evitando que o formulário seja comprimido ao lado do painel institucional.
-
-## Qualidade e testes
-
-### Análise estática
-
-```powershell
-flutter analyze
-```
-
-Resultado da última validação:
-
-```text
-No issues found!
-```
-
-### Testes automatizados
-
-```powershell
-flutter test
-```
-
-Coberturas atuais:
-
-- renderização do login;
-- credenciais demonstrativas;
-- navegação após autenticação;
-- grade responsiva de indicadores;
-- dashboard sem overflow em `390 × 844`;
-- dashboard sem overflow em `900 × 1100`;
-- dashboard sem overflow em `1440 × 900`.
-
-Resultado da última execução:
-
-```text
-6 tests passed
-```
-
-### Relatório de cobertura
-
-```powershell
-flutter test --coverage
-```
-
-O arquivo será criado em:
-
-```text
-coverage/lcov.info
-```
-
-## Build de produção
-
-### Web
-
-```powershell
-flutter build web --release
-```
-
-Saída:
-
-```text
-build/web/
-```
-
-Para testar o build localmente:
-
-```powershell
-cd build/web
-python -m http.server 8080
-```
-
-Acesse `http://127.0.0.1:8080`.
-
-### Windows
-
-```powershell
-flutter build windows --release
-```
-
-Saída principal:
-
-```text
-build/windows/x64/runner/Release/
-```
-
-### Android APK
-
-```powershell
-flutter build apk --release
-```
-
-Saída:
-
-```text
-build/app/outputs/flutter-apk/app-release.apk
-```
-
-### Android App Bundle
-
-```powershell
-flutter build appbundle --release
-```
-
-Saída:
-
-```text
-build/app/outputs/bundle/release/app-release.aab
-```
-
-## Solução de problemas
-
-### `flutter` não é reconhecido
-
-Adicione a pasta `flutter/bin` ao `PATH` do sistema e abra um novo terminal.
-
-```powershell
-flutter --version
-```
-
-### Chrome não aparece em `flutter devices`
-
-Verifique se o Chrome está instalado. Como alternativa, use:
-
-```powershell
-flutter run -d web-server --web-port 8080
-```
-
-### Windows não aparece como dispositivo
-
-```powershell
-flutter config --enable-windows-desktop
-flutter doctor -v
-```
-
-Confirme também a instalação do Visual Studio com a carga **Desktop development with C++**.
-
-### Dependências inconsistentes
-
-```powershell
-flutter clean
-flutter pub get
-flutter run -d chrome
-```
-
-### Porta ocupada no servidor Web
-
-Escolha outra porta:
-
-```powershell
-flutter run -d web-server --web-port 8081
-```
-
-### Emulador Android não encontrado
-
-- abra o Device Manager do Android Studio;
-- inicie um emulador;
-- aceite as licenças pendentes;
-- confira novamente os dispositivos.
-
-```powershell
-flutter doctor --android-licenses
-flutter devices
-```
-
-## Limitações atuais
-
-- autenticação apenas demonstrativa;
-- repositório de dados local, sem API real;
-- filtros globais preparados para integração completa com consultas no backend;
-- exportações PDF e CSV apenas visuais;
-- Assistente SEMOB com respostas mockadas;
-- usuários e permissões sem persistência;
-- passageiros sem associação por linha na fonte atual;
-- receita tarifária e tarifa média indisponíveis;
-- marca SEMOB desenhada temporariamente em código até o recebimento do logo oficial.
-
-## Status do projeto
-
-| Área | Status |
-|---|---|
-| Design system | ✅ Implementado |
-| Navegação | ✅ Implementada |
-| Responsividade | ✅ Mobile, tablet e desktop |
-| Dashboard | ✅ Funcional com dados mockados |
-| Telas operacionais | ✅ Implementadas |
-| Testes essenciais | ✅ Aprovados |
-| Build Web | ✅ Validado |
-| Backend/API | ⏳ Próxima etapa |
-| MongoDB | ⏳ Próxima etapa |
-| Autenticação real | ⏳ Próxima etapa |
-| IA real | ⏳ Próxima etapa |
-
-## Roadmap
-
-- [x] Criar a base Flutter multiplataforma.
-- [x] Implementar design system institucional.
-- [x] Criar autenticação mockada e rotas protegidas.
-- [x] Construir dashboard e módulos operacionais.
-- [x] Adaptar os layouts para desktop, tablet e mobile.
-- [x] Adicionar testes essenciais e validação de overflow.
-- [x] Preparar Dio e contrato de repositório.
-- [ ] Adicionar o logo oficial da SEMOB.
-- [ ] Implementar a API REST.
-- [ ] Criar o `ApiTransportRepository`.
-- [ ] Integrar MongoDB Atlas.
-- [ ] Implementar autenticação e autorização reais.
-- [ ] Conectar filtros e paginação ao backend.
-- [ ] Gerar PDF e CSV reais.
-- [ ] Integrar o Assistente SEMOB a um serviço de IA.
-- [ ] Publicar o frontend Web.
-- [ ] Criar pipeline de CI/CD.
-
-## Documentação complementar
-
-Leia [DOCUMENTACAO_FRONTEND.md](DOCUMENTACAO_FRONTEND.md) para consultar o mapeamento detalhado das fontes, decisões de integridade dos dados, arquitetura, estados da interface e próximos passos técnicos.
+A API usa PostgreSQL/Neon para usuários e MongoDB para transporte, sem disco persistente no Render. O Compose fornece os dois bancos localmente. Configure `SEMOB_AI_URL` com a rota exata da IA existente; a comunicação é backend → backend. O Neon da IA permanece separado do banco SEMOB.
 
 ## Equipe
 
@@ -666,12 +112,4 @@ Leia [DOCUMENTACAO_FRONTEND.md](DOCUMENTACAO_FRONTEND.md) para consultar o mapea
 | Enzo Pizzoni de Sette | 25.00467-2 | Scrum Master |
 | Lucas Hideaki Tomita | 25.00969-7 | Desenvolvedor |
 
-Projeto Integrador — **TTI206 Desenvolvimento Multiplataformas · 2026**.
-
----
-
-<div align="center">
-
-Desenvolvido para apoiar uma operação de transporte público mais clara, ágil e orientada por dados.
-
-</div>
+Projeto Integrador — TTI206 Desenvolvimento Multiplataformas · 2026.

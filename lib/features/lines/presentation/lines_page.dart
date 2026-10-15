@@ -35,7 +35,7 @@ class _LinesPageState extends ConsumerState<LinesPage> {
         const SizedBox(height: 16),
         SectionCard(
           title: 'Linhas em operação',
-          subtitle: '9 linhas identificadas no relatório mensal',
+          subtitle: 'Linhas identificadas no período selecionado',
           trailing: SizedBox(
             width: AppBreakpoints.isMobile(context) ? 150 : 230,
             child: TextField(
@@ -175,10 +175,8 @@ class _LineCard extends StatelessWidget {
                   ),
                 ),
                 StatusBadge(
-                  label: '${line.performance.toStringAsFixed(1)}%',
-                  kind: line.performance < 99.7
-                      ? StatusKind.warning
-                      : StatusKind.good,
+                  label: '${line.performance.toStringAsFixed(1)}% das viagens',
+                  kind: StatusKind.neutral,
                 ),
               ],
             ),

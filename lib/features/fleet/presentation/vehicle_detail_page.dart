@@ -1,130 +1,129 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../models/transport_models.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../services/api_client.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/page_components.dart';
 
 class VehicleDetailPage extends ConsumerWidget {
   const VehicleDetailPage({super.key, required this.prefix});
   final String prefix;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vehicles = ref.watch(vehiclesProvider);
-    final trips = ref.watch(tripsProvider);
+    final p = ref.watch(globalFiltersProvider).period;
+    final vehicles = ref.watch(
+      remoteProvider('vehicles?period=$p&vehicle=$prefix'),
+    );
+    final trips = ref.watch(
+      tripPageProvider(
+        Uri(
+          queryParameters: {
+            'period': p,
+            'vehicle': prefix,
+            'limit': '50',
+            'order': 'desc',
+          },
+        ).query,
+      ),
+    );
     return PageBody(
       children: [
         PageHeader(
           title: 'Veículo $prefix',
-          subtitle: 'Resumo operacional do prefixo',
-          action: OutlinedButton.icon(
+          subtitle: 'Histórico no período $p',
+          action: OutlinedButton(
             onPressed: () => context.go('/fleet'),
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('Voltar à frota'),
+            child: const Text('Voltar à frota'),
           ),
         ),
         const SizedBox(height: 16),
         vehicles.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Erro ao carregar: $error'),
-          data: (data) {
-            final vehicle = data
-                .where((item) => item.prefix == prefix)
-                .firstOrNull;
-            if (vehicle == null) {
-              return const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text('Veículo não encontrado.'),
-                ),
-              );
+          loading: () => const LinearProgressIndicator(),
+          error: (e, s) => Text(apiError(e)),
+          data: (value) {
+            final rows = value as List;
+            if (rows.isEmpty) {
+              return const Text('Veículo não encontrado neste período.');
             }
-            final related =
-                trips.value?.where((item) => item.vehicle == prefix).toList() ??
-                const <TripRecord>[];
+            final vehicle = VehicleSummary.fromJson(
+              Map<String, dynamic>.from(rows.first as Map),
+            );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 MetricsGrid(
                   children: [
                     MetricCard(
-                      label: 'Viagens',
+                      label: 'Registros de atividades',
                       value: Formatters.integer(vehicle.trips),
-                      icon: Icons.alt_route_rounded,
+                      icon: Icons.route,
                     ),
                     MetricCard(
                       label: 'Km total',
-                      value: '${Formatters.decimal(vehicle.totalKm)} km',
-                      icon: Icons.route_outlined,
+                      value: Formatters.decimal(vehicle.totalKm),
+                      icon: Icons.map,
                     ),
                     MetricCard(
                       label: 'Linhas atendidas',
                       value: '${vehicle.lines.length}',
-                      icon: Icons.signpost_outlined,
+                      icon: Icons.signpost,
                     ),
                     MetricCard(
-                      label: 'Status',
-                      value: vehicle.status,
-                      icon: Icons.check_circle_outline,
+                      label: 'Janela registrada',
+                      value: vehicle.firstRecord,
+                      helper: vehicle.lastRecord,
+                      icon: Icons.calendar_month,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                TwoColumnLayout(
-                  left: SectionCard(
-                    title: 'Histórico da amostra',
-                    subtitle: '${vehicle.firstRecord} a ${vehicle.lastRecord}',
-                    child: related.isEmpty
-                        ? const Text(
-                            'Nenhuma viagem deste prefixo está presente na amostra reduzida.',
-                            style: TextStyle(color: AppColors.muted),
-                          )
-                        : Column(
-                            children: related
-                                .map(
-                                  (trip) => ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    leading: const Icon(
-                                      Icons.route_outlined,
-                                      color: AppColors.green,
-                                    ),
-                                    title: Text(
-                                      'Linha ${trip.line} • ${trip.direction}',
-                                    ),
-                                    subtitle: Text(
-                                      '${trip.date} • ${trip.start} → ${trip.end}',
-                                    ),
-                                    trailing: Text(
-                                      '${Formatters.decimal(trip.totalKm)} km',
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                  ),
-                  right: SectionCard(
-                    title: 'Linhas em que operou',
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: vehicle.lines
-                          .map(
-                            (line) => ActionChip(
-                              label: Text('Linha $line'),
-                              onPressed: () => context.go('/lines/$line'),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
+                Wrap(
+                  spacing: 8,
+                  children: vehicle.lines
+                      .map(
+                        (line) => ActionChip(
+                          label: Text('Linha $line'),
+                          onPressed: () => context.go('/lines/$line'),
+                        ),
+                      )
+                      .toList(),
                 ),
               ],
             );
           },
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Registros recentes',
+          subtitle:
+              'Primeira página, até 50 registros. Não indica status atual do veículo.',
+          trailing: TextButton(
+            onPressed: () {
+              ref
+                  .read(globalFiltersProvider.notifier)
+                  .update(GlobalFilters(period: p, vehicle: prefix));
+              context.go('/trips');
+            },
+            child: const Text('Consultar todas'),
+          ),
+          child: trips.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, s) => Text(apiError(e)),
+            data: (page) => Column(
+              children: [
+                Text('${page.total} registros encontrados'),
+                for (final trip in page.items)
+                  ListTile(
+                    title: Text('${trip.date} • Linha ${trip.line}'),
+                    subtitle: Text(
+                      '${trip.direction} • ${trip.start} → ${trip.end} • ${trip.status.label}',
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ],
     );

@@ -39,6 +39,8 @@ dependencies:
   dio: ^5.11.1
   fl_chart: ^1.2.0
   intl: ^0.20.3
+  file_selector: ^1.1.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +63,14 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  fonts:
+    - family: NotoSans
+      fonts:
+        - asset: backend/assets/fonts/NotoSans-Regular.ttf
+
+  assets:
+    - assets/images/login_bus.png
+    - assets/images/semob_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

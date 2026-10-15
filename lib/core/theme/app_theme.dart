@@ -22,7 +22,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.canvas,
-      fontFamily: 'Inter',
+      fontFamily: 'NotoSans',
       visualDensity: VisualDensity.standard,
       dividerColor: AppColors.line,
       cardTheme: const CardThemeData(

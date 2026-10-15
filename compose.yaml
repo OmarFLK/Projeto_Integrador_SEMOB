@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: semob_users
+      POSTGRES_USER: semob
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - semob_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semob -d semob_users"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  mongo:
+    image: mongo:8.0.32
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Defina MONGO_ROOT_PASSWORD no .env}
+      SEMOB_MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD:?Defina MONGO_APP_PASSWORD no .env}
+    volumes:
+      - semob_mongo:/data/db
+      - ./deploy/mongo-init.js:/docker-entrypoint-initdb.d/semob.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  api:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      SEMOB_ENV: ${SEMOB_ENV:-development}
+      SEMOB_ADMIN_EMAIL: ${SEMOB_ADMIN_EMAIL:-admin@semob.local}
+      SEMOB_ADMIN_PASSWORD: ${SEMOB_ADMIN_PASSWORD:?Defina SEMOB_ADMIN_PASSWORD no .env}
+      SEMOB_ALLOWED_ORIGINS: ${SEMOB_ALLOWED_ORIGINS:-http://localhost:8080}
+      DATABASE_URL: postgresql://semob:${POSTGRES_PASSWORD}@postgres:5432/semob_users?sslmode=disable
+      SEMOB_MONGODB_URI: mongodb://semob:${MONGO_APP_PASSWORD}@mongo:27017/semob_data?authSource=semob_data
+      SEMOB_AI_URL: ${SEMOB_AI_URL:-}
+      SEMOB_AI_API_KEY: ${SEMOB_AI_API_KEY:-}
+      SEMOB_AI_REQUEST_FIELD: ${SEMOB_AI_REQUEST_FIELD:-message}
+      SEMOB_AI_RESPONSE_FIELD: ${SEMOB_AI_RESPONSE_FIELD:-answer}
+      SEMOB_RECOVERY_WEBHOOK: ${SEMOB_RECOVERY_WEBHOOK:-}
+      SEMOB_RECOVERY_WEBHOOK_KEY: ${SEMOB_RECOVERY_WEBHOOK_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+volumes:
+  semob_postgres:
+  semob_mongo:

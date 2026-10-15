@@ -1,0 +1,13 @@
+.dart_tool/
+build/
+data/
+.env*
+**/.env*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/credentials.json
+**/*service-account*.json
+test/
+*.log

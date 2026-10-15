@@ -12,23 +12,44 @@ class MockTransportRepository implements TransportRepository {
   }
 
   @override
-  Future<List<AnomalyRecord>> getAnomalies() => _mock(anomalyRecords);
+  Future<List<AnomalyRecord>> getAnomalies({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(anomalyRecords);
 
   @override
-  Future<List<FinancialDay>> getFinancialDays() => _mock(financialDays);
+  Future<List<FinancialDay>> getFinancialDays({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(financialDays);
 
   @override
-  Future<List<LineSummary>> getLines() => _mock(lineSummaries);
+  Future<List<LineSummary>> getLines({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(lineSummaries);
 
   @override
-  Future<List<OperationDay>> getOperationDays() => _mock(operationDays);
+  Future<List<OperationDay>> getOperationDays({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(operationDays);
 
   @override
-  Future<List<PassengerDay>> getPassengerDays() => _mock(passengerDays);
+  Future<List<PassengerDay>> getPassengerDays({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(passengerDays);
 
   @override
-  Future<List<TripRecord>> getTrips() => _mock(tripRecords);
+  Future<List<TripRecord>> getTrips({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(tripRecords);
 
   @override
-  Future<List<VehicleSummary>> getVehicles() => _mock(vehicleSummaries);
+  Future<List<VehicleSummary>> getVehicles({
+    String? period,
+    Map<String, String> query = const {},
+  }) => _mock(vehicleSummaries);
 }

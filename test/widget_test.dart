@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:semob_dashboard/app.dart';
 import 'package:semob_dashboard/shared/widgets/page_components.dart';
+import 'test_support.dart';
+
+Widget _testApp() => testApp();
+
+Future<void> _signIn(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('login_identifier')),
+    'admin@semob.sp.gov.br',
+  );
+  await tester.enterText(find.byKey(const Key('login_password')), 'semob2026');
+  final submit = find.byKey(const Key('login_submit'));
+  await tester.ensureVisible(submit);
+  await tester.tap(submit);
+  await tester.pump(const Duration(milliseconds: 800));
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  testWidgets('exibe login institucional e credenciais de demonstração', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: SemobApp()));
+  testWidgets('exibe o login institucional', (tester) async {
+    await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Portal de Operação\nde Transporte'), findsOneWidget);
@@ -18,14 +30,9 @@ void main() {
   });
 
   testWidgets('login válido abre a visão geral', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: SemobApp()));
+    await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();
-
-    final submit = find.byKey(const Key('login_submit'));
-    await tester.ensureVisible(submit);
-    await tester.tap(submit);
-    await tester.pump(const Duration(milliseconds: 800));
-    await tester.pumpAndSettle();
+    await _signIn(tester);
 
     expect(find.text('Visão Geral'), findsWidgets);
     expect(find.text('Passageiros totais'), findsOneWidget);
@@ -67,14 +74,9 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(const ProviderScope(child: SemobApp()));
+      await tester.pumpWidget(_testApp());
       await tester.pumpAndSettle();
-
-      final submit = find.byKey(const Key('login_submit'));
-      await tester.ensureVisible(submit);
-      await tester.tap(submit);
-      await tester.pump(const Duration(milliseconds: 800));
-      await tester.pumpAndSettle();
+      await _signIn(tester);
 
       expect(find.text('Passageiros totais'), findsOneWidget);
       final exception = tester.takeException();

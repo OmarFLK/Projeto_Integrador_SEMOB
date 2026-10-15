@@ -22,6 +22,7 @@ class _AnomaliesPageState extends ConsumerState<AnomaliesPage> {
   @override
   Widget build(BuildContext context) {
     final anomalies = ref.watch(anomaliesProvider);
+    final records = anomalies.value ?? <AnomalyRecord>[];
     return PageBody(
       children: [
         PageHeader(
@@ -32,31 +33,37 @@ class _AnomaliesPageState extends ConsumerState<AnomaliesPage> {
         const SizedBox(height: 16),
         const DataSourceNote(
           text:
-              'Agosto/2026: 42 viagens não realizadas, 6 não iniciadas e 8 não terminadas nos relatórios de exceção.',
+              'Exceções reportadas pelas fontes no período selecionado. Investigue cada ocorrência no contexto operacional.',
         ),
         const SizedBox(height: 16),
         MetricsGrid(
-          children: const [
+          children: [
             MetricCard(
               label: 'Não realizadas',
-              value: '42',
+              value: anomalies.isLoading
+                  ? '…'
+                  : '${records.where((r) => r.metric == "Não realizada").length}',
               icon: Icons.event_busy_outlined,
               change: 'Atenção',
               positive: false,
             ),
             MetricCard(
               label: 'Não iniciadas',
-              value: '6',
+              value: anomalies.isLoading
+                  ? '…'
+                  : '${records.where((r) => r.metric == "Não iniciada").length}',
               icon: Icons.play_disabled_outlined,
             ),
             MetricCard(
               label: 'Não terminadas',
-              value: '8',
+              value: anomalies.isLoading
+                  ? '…'
+                  : '${records.where((r) => r.metric == "Não terminada").length}',
               icon: Icons.stop_circle_outlined,
             ),
             MetricCard(
-              label: 'Diferença de viagens',
-              value: '56',
+              label: 'Total de exceções',
+              value: anomalies.isLoading ? '…' : '${records.length}',
               icon: Icons.compare_arrows_rounded,
               helper: 'Total no mês',
             ),

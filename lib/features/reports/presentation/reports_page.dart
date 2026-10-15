@@ -1,228 +1,213 @@
+import 'dart:convert';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-
-import '../../../core/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../services/api_client.dart';
+import '../../../shared/providers/app_providers.dart';
+import '../../../shared/widgets/global_filter_bar.dart';
 import '../../../shared/widgets/page_components.dart';
+import '../../../shared/widgets/export_actions.dart';
+import '../../auth/presentation/auth_controller.dart';
 
-class ReportsPage extends StatefulWidget {
+class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
-
   @override
-  State<ReportsPage> createState() => _ReportsPageState();
+  ConsumerState<ReportsPage> createState() => _ReportsState();
 }
 
-class _ReportsPageState extends State<ReportsPage> {
-  String _period = 'Agosto de 2026';
-
+class _ReportsState extends ConsumerState<ReportsPage> {
+  bool importing = false;
+  String dataset = 'operation_days';
+  String? feedback;
+  bool failed = false;
   static const reports = [
-    (
-      'Operação',
-      Icons.route_outlined,
-      'Viagens planejadas, realizadas e quilometragem',
-    ),
-    (
-      'Viagens',
-      Icons.alt_route_rounded,
-      'Registros detalhados por linha e veículo',
-    ),
-    (
-      'Passageiros',
-      Icons.groups_2_outlined,
-      'Catraca, antecipados e não pagantes',
-    ),
-    ('Linhas', Icons.signpost_outlined, 'Consolidado de desempenho por linha'),
-    (
-      'Frota',
-      Icons.directions_bus_outlined,
-      'Utilização e quilometragem por prefixo',
-    ),
-    (
-      'Financeiro',
-      Icons.account_balance_wallet_outlined,
-      'Créditos transferidos e saldo final',
-    ),
-    (
-      'Anomalias',
-      Icons.warning_amber_rounded,
-      'Ocorrências operacionais identificadas',
-    ),
+    ('operation', 'Operação', '/operation'),
+    ('trips', 'Viagens', '/trips'),
+    ('passengers', 'Passageiros', '/passengers'),
+    ('lines', 'Linhas', '/lines'),
+    ('vehicles', 'Frota', '/fleet'),
+    ('financial', 'Financeiro', '/financial'),
+    ('anomalies', 'Anomalias', '/anomalies'),
   ];
-
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final meta = ref.watch(remoteProvider('meta'));
+    final options = ref.watch(optionsProvider);
     return PageBody(
       children: [
         const PageHeader(
-          title: 'Relatórios',
-          subtitle: 'Visualização e exportação de dados operacionais',
+          title: 'Relatórios e dados',
+          subtitle: 'Consulte, exporte e importe lotes com rastreabilidade',
+          action: GlobalFilterBar(),
         ),
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              crossAxisAlignment: WrapCrossAlignment.center,
+        if (user?.can('import') == true)
+          SectionCard(
+            title: 'Importar novos dados',
+            subtitle:
+                'ZIP com HTMLs organizados por mês ou CSV normalizado. Limite: 25 MB.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.calendar_month_outlined,
-                  color: AppColors.green,
-                ),
-                const Text(
-                  'Período do relatório',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                SizedBox(
-                  width: 230,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _period,
-                    decoration: const InputDecoration(isDense: true),
-                    items:
-                        const [
-                              'Agosto de 2026',
-                              'Julho de 2026',
-                              '1ª quinzena de setembro',
-                            ]
-                            .map(
-                              (item) => DropdownMenuItem(
-                                value: item,
-                                child: Text(item),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (value) =>
-                        setState(() => _period = value ?? _period),
+                DropdownButtonFormField<String>(
+                  initialValue: dataset,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo do CSV (não se aplica ao ZIP)',
                   ),
+                  items:
+                      ((options.value?['datasets'] as List?)?.cast<String>() ??
+                              [
+                                'operation_days',
+                                'fleet_compliance_days',
+                                'line_days',
+                                'time_range_line_stats',
+                                'time_range_summaries',
+                                'trips',
+                                'anomalies',
+                                'passenger_days',
+                                'credit_balances',
+                                'financial_flows',
+                              ])
+                          .map(
+                            (s) => DropdownMenuItem(value: s, child: Text(s)),
+                          )
+                          .toList(),
+                  onChanged: importing
+                      ? null
+                      : (v) => setState(() => dataset = v!),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: importing
+                          ? null
+                          : () => downloadDataset(context, ref, dataset),
+                      icon: const Icon(Icons.download),
+                      label: const Text('Baixar modelo CSV'),
+                    ),
+                    TextButton(
+                      onPressed: importing
+                          ? null
+                          : () => downloadDataset(
+                              context,
+                              ref,
+                              dataset,
+                              template: false,
+                            ),
+                      child: const Text('Baixar dados normalizados do período'),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: importing ? null : _import,
+                  icon: const Icon(Icons.upload_file),
+                  label: Text(
+                    importing
+                        ? 'Validando e importando...'
+                        : 'Selecionar arquivo e importar',
+                  ),
+                ),
+                if (importing) const LinearProgressIndicator(),
+                if (feedback != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(
+                      feedback!,
+                      style: TextStyle(color: failed ? Colors.red : null),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                const Text(
+                  'O CSV usa as colunas normalizadas documentadas no projeto. Novos lotes preservam o histórico fora das chaves atualizadas.',
                 ),
               ],
             ),
           ),
+        const SizedBox(height: 16),
+        meta.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (e, s) => TextButton(
+            onPressed: () => ref.invalidate(remoteProvider('meta')),
+            child: const Text('Recarregar situação dos dados'),
+          ),
+          data: (value) => DataSourceNote(
+            text:
+                'Última importação: ${value['importedAt'] ?? 'Nenhuma'} • ${value['counts']?['trips'] ?? 0} registros de viagens • ${value['counts']?['source_files'] ?? 0} fontes.',
+          ),
         ),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth < 650
-                ? 1
-                : constraints.maxWidth < 1100
-                ? 2
-                : 3;
-            const gap = 12.0;
-            final width =
-                (constraints.maxWidth - gap * (columns - 1)) / columns;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: reports
-                  .map(
-                    (report) => SizedBox(
-                      width: width,
-                      child: _ReportCard(
-                        title: report.$1,
-                        icon: report.$2,
-                        description: report.$3,
-                        period: _period,
-                        onAction: _feedback,
-                      ),
+        const SizedBox(height: 16),
+        for (final report in reports)
+          if (report.$1 != 'financial' || user?.can('financial') == true)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SectionCard(
+                title: report.$2,
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => context.go(report.$3),
+                      icon: const Icon(Icons.visibility),
+                      label: const Text('Visualizar'),
                     ),
-                  )
-                  .toList(),
-            );
-          },
-        ),
+                    ExportActions(resource: report.$1),
+                  ],
+                ),
+              ),
+            ),
       ],
     );
   }
 
-  void _feedback(String action) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('$action preparado para a futura API de relatórios.'),
-        ),
-      );
-  }
-}
-
-class _ReportCard extends StatelessWidget {
-  const _ReportCard({
-    required this.title,
-    required this.icon,
-    required this.description,
-    required this.period,
-    required this.onAction,
-  });
-  final String title;
-  final IconData icon;
-  final String description;
-  final String period;
-  final ValueChanged<String> onAction;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.greenLight,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: AppColors.green),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 13),
-          Text(
-            description,
-            style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 12.5,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            period,
-            style: const TextStyle(color: AppColors.muted, fontSize: 10.5),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => onAction('Visualização de $title'),
-                icon: const Icon(Icons.visibility_outlined, size: 16),
-                label: const Text('Visualizar'),
-              ),
-              OutlinedButton(
-                onPressed: () => onAction('PDF de $title'),
-                child: const Text('PDF'),
-              ),
-              OutlinedButton(
-                onPressed: () => onAction('CSV de $title'),
-                child: const Text('CSV'),
-              ),
-            ],
+  Future<void> _import() async {
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: [
+          const XTypeGroup(
+            label: 'Relatórios SEMOB',
+            extensions: ['zip', 'csv'],
           ),
         ],
-      ),
-    ),
-  );
+      );
+      if (file == null) return;
+      if (await file.length() > 25 * 1024 * 1024) {
+        throw Exception('O arquivo deve ter até 25 MB.');
+      }
+      setState(() {
+        importing = true;
+        feedback = null;
+        failed = false;
+      });
+      final response = await ref
+          .read(apiClientProvider)
+          .dio
+          .post<Map<String, dynamic>>(
+            'imports',
+            data: {
+              'filename': file.name,
+              'dataset': dataset,
+              'content': base64Encode(await file.readAsBytes()),
+            },
+          );
+      if (!mounted) return;
+      refreshData(ref);
+      setState(() => feedback = 'Lote publicado. ${response.data!['counts']}');
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          failed = true;
+          feedback = e is Exception && e.toString().contains('25 MB')
+              ? 'O arquivo deve ter até 25 MB.'
+              : apiError(e);
+        });
+      }
+    } finally {
+      if (mounted) setState(() => importing = false);
+    }
+  }
 }

@@ -14,17 +14,13 @@ class BrandMark extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: compact ? 36 : 42,
-          height: compact ? 36 : 42,
-          decoration: BoxDecoration(
-            color: AppColors.green,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(
-            Icons.directions_bus_filled_rounded,
-            color: AppColors.white,
-            size: 24,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            'assets/images/semob_logo.png',
+            fit: BoxFit.cover,
+            width: compact ? 38 : 46,
+            height: compact ? 38 : 46,
           ),
         ),
         if (!compact) ...[
@@ -39,16 +35,16 @@ class BrandMark extends StatelessWidget {
                   color: foreground,
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
-                  letterSpacing: 0.6,
+                  letterSpacing: 0,
                 ),
               ),
               Text(
-                'S�O CAETANO DO SUL',
+                'SÃO CAETANO DO SUL',
                 style: TextStyle(
                   color: onDark ? Colors.white70 : AppColors.muted,
                   fontWeight: FontWeight.w600,
                   fontSize: 8,
-                  letterSpacing: 0.55,
+                  letterSpacing: 0,
                 ),
               ),
             ],

@@ -88,13 +88,12 @@ class _OperationContent extends StatelessWidget {
               label: 'Não realizadas',
               value: Formatters.integer(scheduled - completed),
               icon: Icons.event_busy_outlined,
-              change: '0,16%',
               positive: false,
             ),
             MetricCard(
               label: 'Taxa de cumprimento',
               value: Formatters.percent(
-                completed / scheduled * 100,
+                scheduled == 0 ? 0 : completed / scheduled * 100,
                 decimals: 2,
               ),
               icon: Icons.speed_rounded,
@@ -108,7 +107,7 @@ class _OperationContent extends StatelessWidget {
               label: 'Km improdutivo',
               value: '${Formatters.decimal(unproductive)} km',
               icon: Icons.route_outlined,
-              helper: '5,01% do total',
+              helper: 'Quilometragem registrada',
             ),
             MetricCard(
               label: 'Km total',
@@ -225,7 +224,7 @@ class _OperationContent extends StatelessWidget {
                           const SizedBox(width: 9),
                           Expanded(
                             child: Text(
-                              '${day.day.toString().padLeft(2, '0')}/08 • ${day.weekday}',
+                              '${day.day.toString().padLeft(2, '0')} • ${day.weekday}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 12,

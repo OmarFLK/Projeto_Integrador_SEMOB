@@ -23,6 +23,8 @@ class _FleetPageState extends ConsumerState<FleetPage> {
   @override
   Widget build(BuildContext context) {
     final vehicles = ref.watch(vehiclesProvider);
+    final rows = vehicles.value ?? <VehicleSummary>[];
+    final ranking = [...rows]..sort((a, b) => b.totalKm.compareTo(a.totalKm));
     return PageBody(
       children: [
         PageHeader(
@@ -33,30 +35,34 @@ class _FleetPageState extends ConsumerState<FleetPage> {
         const SizedBox(height: 16),
         const DataSourceNote(
           text:
-              '58 prefixos identificados no arquivo Mensal_Viagens • exibindo os principais por quilometragem',
+              'Prefixos identificados nos registros selecionados. Histórico não indica disponibilidade atual da frota.',
         ),
         const SizedBox(height: 16),
         MetricsGrid(
-          children: const [
+          children: [
             MetricCard(
               label: 'Prefixos identificados',
-              value: '58',
+              value: vehicles.isLoading ? '…' : '${rows.length}',
               icon: Icons.directions_bus_outlined,
             ),
             MetricCard(
               label: 'Linhas atendidas',
-              value: '9',
+              value: vehicles.isLoading
+                  ? '…'
+                  : '${rows.expand((r) => r.lines).toSet().length}',
               icon: Icons.signpost_outlined,
             ),
             MetricCard(
               label: 'Maior quilometragem',
-              value: '6.978,3 km',
+              value: ranking.isEmpty
+                  ? '—'
+                  : '${Formatters.decimal(ranking.first.totalKm)} km',
               icon: Icons.route_outlined,
-              helper: 'Prefixo 1769',
+              helper: ranking.isEmpty ? '' : 'Prefixo ${ranking.first.prefix}',
             ),
             MetricCard(
-              label: 'Status da amostra',
-              value: 'Operacional',
+              label: 'Fonte',
+              value: 'Histórico',
               icon: Icons.check_circle_outline,
             ),
           ],
