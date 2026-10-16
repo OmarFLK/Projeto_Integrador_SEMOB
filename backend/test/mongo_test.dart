@@ -36,6 +36,26 @@ void main() {
         );
         expect(await store.generation(), gen);
         expect(await store.read('rejected', 'passenger_days'), isEmpty);
+        // Dashboard requests must share a healthy connection on Atlas.
+        for (var wave = 0; wave < 3; wave++) {
+          final results = await Future.wait([
+            service.options({'period': '2026-08'}),
+            service.coverage({'period': '2026-08'}),
+            service.resource('passengers', {'period': '2026-08'}),
+            store.manifest(),
+          ]);
+          expect((results[0] as Document)['lines'], isEmpty);
+          expect((results[2] as List).single['total'], 60);
+        }
+        await store.db.close();
+        final recovered = await Future.wait([
+          store.generation(),
+          store.read(gen, 'passenger_days', period: '2026-08'),
+          store.manifest(),
+        ]);
+        expect(recovered[0], gen);
+        expect((recovered[1] as List).single['total'], 60);
+        expect(await store.ready(), isTrue);
       } finally {
         await store.db.drop();
         await store.close();

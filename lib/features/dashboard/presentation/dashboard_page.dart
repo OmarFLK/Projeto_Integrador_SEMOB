@@ -6,6 +6,7 @@ import '../../../core/responsive/breakpoints.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/transport_models.dart';
+import '../../../services/api_client.dart' show apiError;
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/analytics_charts.dart';
 import '../../../shared/widgets/global_filter_bar.dart';
@@ -33,13 +34,14 @@ class DashboardPage extends ConsumerWidget {
         const SizedBox(height: 16),
         operations.when(
           loading: () => const _LoadingDashboard(),
-          error: (error, stack) => _ErrorDashboard(message: '$error'),
+          error: (error, stack) => _ErrorDashboard(message: apiError(error)),
           data: (operationData) => passengers.when(
             loading: () => const _LoadingDashboard(),
-            error: (error, stack) => _ErrorDashboard(message: '$error'),
+            error: (error, stack) => _ErrorDashboard(message: apiError(error)),
             data: (passengerData) => lines.when(
               loading: () => const _LoadingDashboard(),
-              error: (error, stack) => _ErrorDashboard(message: '$error'),
+              error: (error, stack) =>
+                  _ErrorDashboard(message: apiError(error)),
               data: (lineData) => _DashboardContent(
                 operations: operationData,
                 passengers: passengerData,
@@ -384,13 +386,13 @@ class _LoadingDashboard extends StatelessWidget {
   }
 }
 
-class _ErrorDashboard extends StatelessWidget {
+class _ErrorDashboard extends ConsumerWidget {
   const _ErrorDashboard({required this.message});
 
   final String message;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -407,6 +409,10 @@ class _ErrorDashboard extends StatelessWidget {
             Text(
               message,
               style: const TextStyle(color: AppColors.muted, fontSize: 11),
+            ),
+            TextButton(
+              onPressed: () => refreshData(ref),
+              child: const Text('Tentar novamente'),
             ),
           ],
         ),

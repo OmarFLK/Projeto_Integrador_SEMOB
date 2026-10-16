@@ -22,6 +22,10 @@ abstract class DocumentStore {
     Document manifest,
   );
   Future<Document> manifest();
+
+  /// Stores can aggregate filter values without transferring complete trips.
+  Future<Document?> filterOptions(String generation, String period) async =>
+      null;
   Future<void> close();
   Future<bool> ready() async {
     await manifest();
@@ -134,9 +138,14 @@ class LocalDocumentStore extends DocumentStore {
 }
 
 class MongoDocumentStore extends DocumentStore {
-  MongoDocumentStore._(this.db);
-  final mongo.Db db;
+  MongoDocumentStore._(this._db, this._url);
+  mongo.Db _db;
+  mongo.Db get db => _db;
+  final String _url;
+  Future<void>? _reconnecting;
+  bool _closed = false;
   static Future<MongoDocumentStore> open(String url) async {
+    url = normalizeMongoUrl(url);
     final db = await mongo.Db.create(url);
     await db.open();
     await db
@@ -159,7 +168,52 @@ class MongoDocumentStore extends DocumentStore {
         rethrow;
       }
     }
-    return MongoDocumentStore._(db);
+    return MongoDocumentStore._(db, url);
+  }
+
+  Future<void> _reconnect(mongo.Db failed) async {
+    if (_closed) throw StateError('Banco documental encerrado.');
+    if (!identical(failed, _db) && _db.isConnected) return;
+    final pending = _reconnecting;
+    if (pending != null) return pending;
+    final replacement = () async {
+      final next = await mongo.Db.create(_url);
+      try {
+        await next.open();
+        if (_closed) throw StateError('Banco documental encerrado.');
+        _db = next;
+      } catch (_) {
+        await next.close();
+        rethrow;
+      }
+      try {
+        await failed.close();
+      } catch (_) {
+        // The failed socket might already have been closed by the driver.
+      }
+      stderr.writeln('mongodb_reconnected');
+    }();
+    _reconnecting = replacement;
+    try {
+      await replacement;
+    } finally {
+      _reconnecting = null;
+    }
+  }
+
+  Future<T> _read<T>(Future<T> Function(mongo.Db) action) async {
+    // Only repeat reads. Publication has its own ambiguity/commit handling.
+    for (var attempt = 0; ; attempt++) {
+      final connection = _db;
+      try {
+        if (_closed) throw StateError('Banco documental encerrado.');
+        if (!connection.isConnected) await _reconnect(connection);
+        return await action(_db);
+      } catch (error) {
+        if (attempt != 0 || !isMongoConnectionError(error)) rethrow;
+        await _reconnect(connection);
+      }
+    }
   }
 
   @override
@@ -167,7 +221,11 @@ class MongoDocumentStore extends DocumentStore {
   @override
   Future<Document> manifest() async {
     final result =
-        await db.collection('metadata').findOne({'_id': 'active'}) ?? {};
+        await _read(
+          (connection) =>
+              connection.collection('metadata').findOne({'_id': 'active'}),
+        ) ??
+        {};
     result.remove('_id');
     return result;
   }
@@ -182,15 +240,51 @@ class MongoDocumentStore extends DocumentStore {
     String? period,
   }) async {
     if (generation.isEmpty) return [];
-    final rows = await db.collection('documents').find({
-      'generation': generation,
-      'table': table,
-      'period': ?period,
-    }).toList();
+    final rows = await _read(
+      (connection) => connection.collection('documents').find({
+        'generation': generation,
+        'table': table,
+        'period': ?period,
+      }).toList(),
+    );
     for (final row in rows) {
       row.remove('_id');
     }
     return rows;
+  }
+
+  @override
+  Future<Document?> filterOptions(String generation, String period) async {
+    final rows = await _read(
+      (connection) => connection.collection('documents').aggregateToStream([
+        {
+          r'$match': {
+            'generation': generation,
+            'table': 'trips',
+            'period': period,
+          },
+        },
+        {
+          r'$group': {
+            '_id': null,
+            'lines': {r'$addToSet': r'$line'},
+            'vehicles': {r'$addToSet': r'$prefix'},
+            'directions': {r'$addToSet': r'$direction'},
+            'timeRanges': {r'$addToSet': r'$time_range'},
+          },
+        },
+      ]).toList(),
+    );
+    final result = rows.firstOrNull ?? {};
+    return {
+      for (final key in ['lines', 'vehicles', 'directions', 'timeRanges'])
+        key:
+            ((result[key] as List?) ?? [])
+                .where((value) => value != null && value.toString().isNotEmpty)
+                .map((value) => value.toString())
+                .toList()
+              ..sort(),
+    };
   }
 
   @override
@@ -243,7 +337,45 @@ class MongoDocumentStore extends DocumentStore {
   }
 
   @override
-  Future<void> close() => db.close();
+  Future<void> close() async {
+    _closed = true;
+    try {
+      await _reconnecting;
+    } finally {
+      await _db.close();
+    }
+  }
+}
+
+String normalizeMongoUrl(String url) {
+  final uri = Uri.parse(url);
+  // mongo_dart multiplexing can make Atlas reset concurrent requests. Its
+  // safeAtlas mode serializes commands on the socket (including getMore).
+  return uri
+      .replace(queryParameters: {...uri.queryParameters, 'safeAtlas': 'true'})
+      .toString();
+}
+
+bool isMongoConnectionError(Object error) {
+  if (error is mongo.ConnectionException || error is SocketException) {
+    return true;
+  }
+  if (error is! mongo.MongoDartError) return false;
+  return error.message == 'No master connection' ||
+      error.message.startsWith('DB is not open.') ||
+      [
+        6,
+        7,
+        89,
+        91,
+        189,
+        9001,
+        10107,
+        11600,
+        11602,
+        13435,
+        13436,
+      ].contains(error.mongoCode);
 }
 
 const dataTables = [

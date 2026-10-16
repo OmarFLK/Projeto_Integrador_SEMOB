@@ -23,5 +23,6 @@ try {
     }
     $semobJson = $semobConfig | ConvertTo-Json -Depth 8
     [IO.File]::WriteAllText((Join-Path $semobRepo 'build/web/vercel.json'), $semobJson, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $semobRepo 'build/web/.vercelignore'), ".env`n.env.*`n.vercel`n", [Text.UTF8Encoding]::new($false))
     Write-Output 'Build e proxy preparados em build/web. Para publicar, siga TUTORIAL_DEPLOY.md.'
 } finally { Pop-Location }

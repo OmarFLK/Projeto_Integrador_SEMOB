@@ -5,6 +5,7 @@ class DataService {
   DataService(this.store);
   final DocumentStore store;
   final Map<String, Future<List<Document>>> _cache = {};
+  final Map<String, Future<Document>> _optionsCache = {};
   Future<List<Document>> table(
     String name,
     String? period, {
@@ -362,24 +363,40 @@ class DataService {
 
   Future<Document> options(Map<String, String> query) async {
     final p = await period(query);
-    final records = await table('trips', p);
-    List<String> values(String field) =>
-        records
-            .map((r) => r[field]?.toString() ?? '')
-            .where((s) => s.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    return {
-      'periods': await periods(),
-      'lines': values('line'),
-      'vehicles': values('prefix'),
-      'directions': values('direction'),
-      'timeRanges': values('time_range'),
-      'datasets': dataTables
-          .where((s) => !['source_files', 'source_chunks'].contains(s))
-          .toList(),
-    };
+    final gen = await store.generation();
+    final key = '$gen:$p';
+    if (_optionsCache.length > 12) _optionsCache.clear();
+    try {
+      return await _optionsCache.putIfAbsent(key, () async {
+        var dimensions = await store.filterOptions(gen, p);
+        if (dimensions == null) {
+          final records = await table('trips', p, generation: gen);
+          List<String> values(String field) =>
+              records
+                  .map((r) => r[field]?.toString() ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
+          dimensions = {
+            'lines': values('line'),
+            'vehicles': values('prefix'),
+            'directions': values('direction'),
+            'timeRanges': values('time_range'),
+          };
+        }
+        return {
+          'periods': await periods(),
+          ...dimensions,
+          'datasets': dataTables
+              .where((s) => !['source_files', 'source_chunks'].contains(s))
+              .toList(),
+        };
+      });
+    } catch (_) {
+      _optionsCache.remove(key);
+      rethrow;
+    }
   }
 
   Future<List<Document>> insights(Map<String, String> query) async {

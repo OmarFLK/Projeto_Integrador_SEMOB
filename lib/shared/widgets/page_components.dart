@@ -5,6 +5,7 @@ import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../models/transport_models.dart';
+import '../../services/api_client.dart' show apiError;
 import '../providers/app_providers.dart';
 
 class PageBody extends ConsumerWidget {
@@ -449,7 +450,7 @@ class AsyncContent<T> extends StatelessWidget {
               const Text('Não foi possível carregar os dados.'),
               const SizedBox(height: 4),
               Text(
-                '$error',
+                apiError(error),
                 style: const TextStyle(color: AppColors.muted, fontSize: 11),
               ),
             ],
