@@ -129,14 +129,14 @@ class _OperationContent extends StatelessWidget {
                   values: days
                       .map((item) => item.scheduledTrips.toDouble())
                       .toList(),
-                  color: AppColors.graphite,
+                  color: context.palette.graphite,
                 ),
                 ChartSeries(
                   name: 'Realizadas',
                   values: days
                       .map((item) => item.completedTrips.toDouble())
                       .toList(),
-                  color: AppColors.green,
+                  color: context.palette.green,
                 ),
               ],
             ),
@@ -157,7 +157,7 @@ class _OperationContent extends StatelessWidget {
                   values: days
                       .map((item) => item.maxVehiclesInRange.toDouble())
                       .toList(),
-                  color: AppColors.green,
+                  color: context.palette.green,
                 ),
               ],
             ),
@@ -176,7 +176,7 @@ class _OperationContent extends StatelessWidget {
                 ChartSeries(
                   name: 'Produtiva',
                   values: days.map((item) => item.productiveKm).toList(),
-                  color: AppColors.green,
+                  color: context.palette.green,
                 ),
                 ChartSeries(
                   name: 'Improdutiva',
@@ -186,7 +186,7 @@ class _OperationContent extends StatelessWidget {
                 ChartSeries(
                   name: 'Total',
                   values: days.map((item) => item.totalKm).toList(),
-                  color: AppColors.graphite,
+                  color: context.palette.graphite,
                 ),
               ],
             ),

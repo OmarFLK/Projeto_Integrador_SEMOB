@@ -100,12 +100,12 @@ class _PassengersContent extends StatelessWidget {
                 ChartSeries(
                   name: 'Total',
                   values: data.map((item) => item.total.toDouble()).toList(),
-                  color: AppColors.graphite,
+                  color: context.palette.graphite,
                 ),
                 ChartSeries(
                   name: 'Pagantes',
                   values: data.map((item) => item.paying.toDouble()).toList(),
-                  color: AppColors.green,
+                  color: context.palette.green,
                 ),
               ],
             ),
@@ -157,7 +157,7 @@ class _StackedPassengerChart extends StatelessWidget {
         Wrap(
           spacing: 16,
           children: [
-            _Legend(color: AppColors.green, label: 'Catraca'),
+            _Legend(color: context.palette.green, label: 'Catraca'),
             _Legend(color: context.palette.blue, label: 'Antecipados'),
             _Legend(color: context.palette.amber, label: 'Não pagantes'),
           ],

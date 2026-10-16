@@ -273,7 +273,7 @@ class DistributionDonut extends StatelessWidget {
                   sections: [
                     PieChartSectionData(
                       value: primary,
-                      color: AppColors.green,
+                      color: context.palette.green,
                       radius: 20,
                       showTitle: false,
                     ),
@@ -314,7 +314,7 @@ class DistributionDonut extends StatelessWidget {
             ChartSeries(
               name: primaryLabel,
               values: const [],
-              color: AppColors.green,
+              color: context.palette.green,
             ),
             ChartSeries(
               name: secondaryLabel,

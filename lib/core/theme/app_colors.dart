@@ -41,4 +41,5 @@ class AppPalette {
   Color get red => scheme.error;
   Color get amber => isDark ? const Color(0xFFF1C56A) : AppColors.amber;
   Color get blue => isDark ? const Color(0xFF8DCBF1) : AppColors.blue;
+  Color get graphite => isDark ? const Color(0xFFCCDCD2) : AppColors.graphite;
 }
