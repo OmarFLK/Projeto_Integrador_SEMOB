@@ -243,13 +243,16 @@ class TestHttpAdapter implements HttpClientAdapter {
 ProviderScope testApp({
   TestHttpAdapter? adapter,
   String role = 'administrator',
+  AuthRepository? authRepository,
 }) {
   final dio = Dio(BaseOptions(baseUrl: 'http://localhost/api/v1/'))
     ..httpClientAdapter = adapter ?? TestHttpAdapter();
   return ProviderScope(
     overrides: [
       apiClientProvider.overrideWithValue(ApiClient(http: dio)),
-      authRepositoryProvider.overrideWithValue(TestAuthRepository(role: role)),
+      authRepositoryProvider.overrideWithValue(
+        authRepository ?? TestAuthRepository(role: role),
+      ),
     ],
     child: const SemobApp(),
   );

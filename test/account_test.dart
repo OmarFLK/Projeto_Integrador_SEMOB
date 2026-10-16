@@ -1,12 +1,41 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:semob_dashboard/features/auth/presentation/auth_controller.dart';
 import 'package:semob_dashboard/router/app_router.dart';
+import 'package:semob_dashboard/models/user.dart';
 import 'screens_test.dart' show signIn;
 import 'test_support.dart';
 
+class RestoringAuth extends TestAuthRepository {
+  final ready = Completer<AppUser?>();
+  @override
+  Future<AppUser?> restore() => ready.future;
+}
+
 void main() {
+  testWidgets(
+    'restoring a session preserves the direct profile link and router',
+    (tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue = '/profile';
+      addTearDown(
+        tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+      );
+      final repository = RestoringAuth();
+      await tester.pumpWidget(testApp(authRepository: repository));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MaterialApp)),
+      );
+      final before = container.read(routerProvider);
+      repository.ready.complete(testUser());
+      await tester.pumpAndSettle();
+      expect(identical(before, container.read(routerProvider)), true);
+      expect(before.routeInformationProvider.value.uri.path, '/profile');
+      expect(find.text('Informações do perfil'), findsOneWidget);
+      expect(tester.takeException(), null);
+    },
+  );
   testWidgets('profile save updates header without leaving the editor', (
     tester,
   ) async {

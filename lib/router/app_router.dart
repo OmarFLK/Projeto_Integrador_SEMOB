@@ -25,17 +25,22 @@ import '../features/users/presentation/users_page.dart';
 import '../shared/shell/app_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authenticated = ref.watch(
-    authProvider.select((state) => state.isAuthenticated),
+  final refresh = ValueNotifier(0);
+  ref.listen(
+    authProvider.select(
+      (state) =>
+          (state.isAuthenticated, state.initializing, state.user?.accessLevel),
+    ),
+    (_, _) => refresh.value++,
   );
-  ref.watch(authProvider.select((s) => s.user?.accessLevel));
-  final user = ref.read(authProvider).user;
-  final initializing = ref.watch(authProvider.select((s) => s.initializing));
-
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/login',
+    refreshListenable: refresh,
     redirect: (context, state) {
-      if (initializing) return null;
+      final auth = ref.read(authProvider);
+      if (auth.initializing) return null;
+      final authenticated = auth.isAuthenticated;
+      final user = auth.user;
       final atLogin = state.matchedLocation == '/login';
       if (!authenticated && !atLogin) return '/login';
       if (authenticated && atLogin) return '/dashboard';
@@ -111,6 +116,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(() {
+    router.dispose();
+    refresh.dispose();
+  });
+  return router;
 });
 
 class _NotFoundPage extends StatelessWidget {
