@@ -4,6 +4,8 @@ import '../../../services/api_client.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/page_components.dart';
 import '../../../shared/widgets/global_filter_bar.dart';
+import 'package:intl/intl.dart';
+import '../../../core/theme/app_colors.dart';
 
 class AiAssistantPage extends ConsumerStatefulWidget {
   const AiAssistantPage({super.key});
@@ -13,7 +15,8 @@ class AiAssistantPage extends ConsumerStatefulWidget {
 
 class _AssistantState extends ConsumerState<AiAssistantPage> {
   final input = TextEditingController();
-  final messages = <({String question, String answer, List<String> sources})>[];
+  final messages =
+      <({String question, String answer, List<String> sources, DateTime at})>[];
   bool busy = false;
   String? error;
   @override
@@ -26,6 +29,15 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
   Widget build(BuildContext context) {
     final status = ref.watch(remoteProvider('assistant/status'));
     final configured = status.value?['configured'] == true;
+    final prefs = ref.watch(preferencesProvider).value ?? {};
+    final fontSize = switch (prefs['chatTextSize']) {
+      'small' => 13.0,
+      'large' => 18.0,
+      _ => 15.0,
+    };
+    String timestamp(DateTime value) => DateFormat(
+      '${prefs['chatDateFormat'] == 'yyyy-MM-dd' ? 'yyyy-MM-dd' : 'dd/MM/yyyy'} · HH:mm',
+    ).format(value);
     return PageBody(
       children: [
         const PageHeader(
@@ -54,7 +66,25 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(message.question),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      message.question,
+                      style: TextStyle(fontSize: fontSize, height: 1.6),
+                    ),
+                    if (prefs['chatShowTimestamps'] == true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        timestamp(message.at),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.palette.muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -64,7 +94,10 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(message.answer),
+                SelectableText(
+                  message.answer,
+                  style: TextStyle(fontSize: fontSize, height: 1.65),
+                ),
                 if (message.sources.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   ExpansionTile(
@@ -136,6 +169,7 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
           question: question,
           answer: response.data!['answer'] as String,
           sources: (response.data!['sources'] as List? ?? []).cast<String>(),
+          at: DateTime.now(),
         ));
         input.clear();
       });

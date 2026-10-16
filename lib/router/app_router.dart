@@ -28,7 +28,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authenticated = ref.watch(
     authProvider.select((state) => state.isAuthenticated),
   );
-  final user = ref.watch(authProvider.select((s) => s.user));
+  ref.watch(authProvider.select((s) => s.user?.accessLevel));
+  final user = ref.read(authProvider).user;
   final initializing = ref.watch(authProvider.select((s) => s.initializing));
 
   return GoRouter(
@@ -99,7 +100,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/reports', builder: (_, _) => const ReportsPage()),
           GoRoute(path: '/users', builder: (_, _) => const UsersPage()),
           GoRoute(path: '/profile', builder: (_, _) => const ProfilePage()),
-          GoRoute(path: '/settings', builder: (_, _) => const SettingsPage()),
+          GoRoute(
+            path: '/settings',
+            builder: (_, state) => SettingsPage(
+              initialSection: state.uri.queryParameters['tab'] ?? 'appearance',
+            ),
+          ),
           GoRoute(path: '/help', builder: (_, _) => const HelpPage()),
         ],
       ),
@@ -118,10 +124,10 @@ class _NotFoundPage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.explore_off_outlined,
               size: 48,
-              color: AppColors.muted,
+              color: context.palette.muted,
             ),
             const SizedBox(height: 14),
             const Text(
@@ -130,7 +136,7 @@ class _NotFoundPage extends StatelessWidget {
             ),
             if (message != null) ...[
               const SizedBox(height: 8),
-              Text(message!, style: const TextStyle(color: AppColors.muted)),
+              Text(message!, style: TextStyle(color: context.palette.muted)),
             ],
             const SizedBox(height: 18),
             ElevatedButton(

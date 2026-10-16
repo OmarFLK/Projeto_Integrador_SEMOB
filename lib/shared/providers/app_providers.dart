@@ -115,14 +115,38 @@ final optionsProvider = FutureProvider((ref) async {
           ))
       .data!;
 });
-final preferencesProvider = FutureProvider((ref) async {
-  ref.watch(authProvider.select((s) => s.user?.id));
-  return (await ref
-          .watch(apiClientProvider)
+
+class PreferencesController extends AsyncNotifier<Map<String, dynamic>> {
+  @override
+  Future<Map<String, dynamic>> build() async {
+    ref.watch(authProvider.select((s) => s.user?.id));
+    return (await ref
+            .watch(apiClientProvider)
+            .dio
+            .get<Map<String, dynamic>>('preferences'))
+        .data!;
+  }
+
+  Future<void> save(Map<String, dynamic> patch) async {
+    final before = state.value ?? <String, dynamic>{};
+    state = AsyncData({...before, ...patch});
+    try {
+      final response = await ref
+          .read(apiClientProvider)
           .dio
-          .get<Map<String, dynamic>>('preferences'))
-      .data!;
-});
+          .put<Map<String, dynamic>>('preferences', data: patch);
+      if (ref.mounted) state = AsyncData(response.data!);
+    } catch (_) {
+      if (ref.mounted) state = AsyncData(before);
+      rethrow;
+    }
+  }
+}
+
+final preferencesProvider =
+    AsyncNotifierProvider<PreferencesController, Map<String, dynamic>>(
+      PreferencesController.new,
+    );
 void refreshData(WidgetRef ref) {
   ref.invalidate(operationProvider);
   ref.invalidate(passengersProvider);

@@ -45,7 +45,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     // The split institutional layout needs enough room for both panels.
     final compact = MediaQuery.sizeOf(context).width < 980;
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: context.palette.surface,
       body: Row(
         children: [
           if (!compact) const Expanded(flex: 5, child: _InstitutionalPanel()),
@@ -69,16 +69,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             'Portal de Operação\nde Transporte',
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(
-                                  color: AppColors.ink,
+                                  color: context.palette.ink,
                                   fontWeight: FontWeight.w800,
                                   height: 1.15,
                                 ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             'Acesso restrito a gestores e funcionários da SEMOB.',
                             style: TextStyle(
-                              color: AppColors.muted,
+                              color: context.palette.muted,
                               height: 1.45,
                             ),
                           ),
@@ -167,11 +167,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                 : const Text('Entrar'),
                           ),
                           const SizedBox(height: 28),
-                          const Text(
+                          Text(
                             'Prefeitura Municipal de São Caetano do Sul • 2026',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: AppColors.muted,
+                              color: context.palette.muted,
                               fontSize: 11,
                             ),
                           ),
@@ -209,13 +209,17 @@ class _InstitutionalPanel extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset('assets/images/login_bus.png', fit: BoxFit.cover),
-        const DecoratedBox(
+        DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               stops: [0, 0.58, 1],
-              colors: [Color(0xC914211B), Color(0x5214211B), AppColors.white],
+              colors: [
+                const Color(0xC914211B),
+                const Color(0x5214211B),
+                context.palette.surface,
+              ],
             ),
           ),
         ),
@@ -276,8 +280,8 @@ class _LoginAlert extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: error == AuthError.sessionExpired
-            ? AppColors.amberSoft
-            : AppColors.redSoft,
+            ? context.palette.amberSoft
+            : context.palette.redSoft,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -287,8 +291,8 @@ class _LoginAlert extends StatelessWidget {
                 ? Icons.schedule_rounded
                 : Icons.error_outline_rounded,
             color: error == AuthError.sessionExpired
-                ? AppColors.amber
-                : AppColors.red,
+                ? context.palette.amber
+                : context.palette.red,
             size: 20,
           ),
           const SizedBox(width: 9),

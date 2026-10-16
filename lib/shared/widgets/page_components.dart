@@ -72,7 +72,7 @@ class PageHeader extends StatelessWidget {
           title,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
-            color: AppColors.ink,
+            color: context.palette.ink,
           ),
         ),
         const SizedBox(height: 5),
@@ -80,7 +80,7 @@ class PageHeader extends StatelessWidget {
           subtitle,
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.muted),
+          ).textTheme.bodyMedium?.copyWith(color: context.palette.muted),
         ),
       ],
     );
@@ -137,7 +137,7 @@ class MetricCard extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppColors.greenLight,
+                    color: context.palette.greenLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(icon, color: AppColors.green, size: 20),
@@ -158,16 +158,16 @@ class MetricCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: positive
-                                    ? AppColors.greenLight
-                                    : AppColors.redSoft,
+                                    ? context.palette.greenLight
+                                    : context.palette.redSoft,
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
                                 change!,
                                 style: TextStyle(
                                   color: positive
-                                      ? AppColors.greenDark
-                                      : AppColors.red,
+                                      ? context.palette.greenDark
+                                      : context.palette.red,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -183,7 +183,7 @@ class MetricCard extends StatelessWidget {
               value,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppColors.ink,
+                color: context.palette.ink,
               ),
             ),
             const SizedBox(height: 3),
@@ -191,13 +191,13 @@ class MetricCard extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: AppColors.muted, fontSize: 13),
+              style: TextStyle(color: context.palette.muted, fontSize: 13),
             ),
             if (helper != null) ...[
               const SizedBox(height: 6),
               Text(
                 helper!,
-                style: const TextStyle(color: AppColors.muted, fontSize: 10.5),
+                style: TextStyle(color: context.palette.muted, fontSize: 10.5),
               ),
             ],
           ],
@@ -270,8 +270,8 @@ class SectionCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: AppColors.ink,
+                        style: TextStyle(
+                          color: context.palette.ink,
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
                         ),
@@ -280,8 +280,8 @@ class SectionCard extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
-                            color: AppColors.muted,
+                          style: TextStyle(
+                            color: context.palette.muted,
                             fontSize: 12,
                           ),
                         ),
@@ -347,21 +347,23 @@ class DataSourceNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: provisional ? AppColors.amberSoft : AppColors.blueSoft,
+        color: provisional
+            ? context.palette.amberSoft
+            : context.palette.blueSoft,
         borderRadius: BorderRadius.circular(7),
       ),
       child: Row(
         children: [
           Icon(
             provisional ? Icons.info_outline : Icons.storage_outlined,
-            color: provisional ? AppColors.amber : AppColors.blue,
+            color: provisional ? context.palette.amber : context.palette.blue,
             size: 17,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: AppColors.ink, fontSize: 11.5),
+              style: TextStyle(color: context.palette.ink, fontSize: 11.5),
             ),
           ),
         ],
@@ -383,10 +385,13 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (background, foreground) = switch (kind) {
-      StatusKind.good => (AppColors.greenLight, AppColors.greenDark),
-      StatusKind.warning => (AppColors.amberSoft, AppColors.amber),
-      StatusKind.danger => (AppColors.redSoft, AppColors.red),
-      StatusKind.neutral => (AppColors.canvas, AppColors.muted),
+      StatusKind.good => (
+        context.palette.greenLight,
+        context.palette.greenDark,
+      ),
+      StatusKind.warning => (context.palette.amberSoft, context.palette.amber),
+      StatusKind.danger => (context.palette.redSoft, context.palette.red),
+      StatusKind.neutral => (context.palette.canvas, context.palette.muted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -441,9 +446,9 @@ class AsyncContent<T> extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.cloud_off_outlined,
-                color: AppColors.red,
+                color: context.palette.red,
                 size: 32,
               ),
               const SizedBox(height: 10),
@@ -451,7 +456,7 @@ class AsyncContent<T> extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 apiError(error),
-                style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                style: TextStyle(color: context.palette.muted, fontSize: 11),
               ),
             ],
           ),
@@ -463,7 +468,7 @@ class AsyncContent<T> extends StatelessWidget {
                 padding: const EdgeInsets.all(40),
                 child: Text(
                   emptyMessage,
-                  style: const TextStyle(color: AppColors.muted),
+                  style: TextStyle(color: context.palette.muted),
                 ),
               ),
             )

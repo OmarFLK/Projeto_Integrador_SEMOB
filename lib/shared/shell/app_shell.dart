@@ -5,6 +5,7 @@ import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
 import '../../features/auth/presentation/auth_controller.dart';
 import '../widgets/brand_mark.dart';
+import '../widgets/user_avatar.dart';
 
 const navigation = [
   (
@@ -106,14 +107,6 @@ class AppShell extends ConsumerWidget {
             .firstOrNull
             ?.label ??
         'Portal SEMOB';
-    final initials = user.name
-        .trim()
-        .split(RegExp(r'\s+'))
-        .where((s) => s.isNotEmpty)
-        .take(2)
-        .map((s) => s[0])
-        .join()
-        .toUpperCase();
     Widget profile() => PopupMenuButton<String>(
       tooltip: 'Menu do perfil',
       onSelected: (v) async {
@@ -134,19 +127,12 @@ class AppShell extends ConsumerWidget {
       },
       itemBuilder: (_) => const [
         PopupMenuItem(value: '/profile', child: Text('Meu perfil')),
-        PopupMenuItem(value: '/settings', child: Text('Preferências')),
+        PopupMenuItem(value: '/settings', child: Text('Configurações')),
         PopupMenuItem(value: 'logout', child: Text('Sair')),
       ],
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppColors.greenLight,
-          child: Text(
-            initials,
-            style: const TextStyle(fontSize: 12, color: AppColors.greenDark),
-          ),
-        ),
+        child: UserAvatar(user: user, radius: 18),
       ),
     );
     if (AppBreakpoints.isMobile(context)) {
@@ -216,7 +202,17 @@ class AppShell extends ConsumerWidget {
         children: [
           Container(
             width: compact ? 76 : 250,
-            color: AppColors.charcoal,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF16382A),
+                  Color(0xFF10251B),
+                  Color(0xFF192920),
+                ],
+              ),
+            ),
             child: SafeArea(
               child: Column(
                 children: [
@@ -275,7 +271,7 @@ class AppShell extends ConsumerWidget {
                 Container(
                   height: 68,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  color: Colors.white,
+                  color: context.palette.surface,
                   child: Row(
                     children: [
                       Expanded(

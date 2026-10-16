@@ -151,13 +151,13 @@ class _VehicleCard extends StatelessWidget {
     onTap: () => context.go('/fleet/${vehicle.prefix}'),
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.line)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.palette.line)),
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            backgroundColor: AppColors.greenLight,
+          CircleAvatar(
+            backgroundColor: context.palette.greenLight,
             child: Icon(Icons.directions_bus_outlined, color: AppColors.green),
           ),
           const SizedBox(width: 12),
@@ -172,8 +172,8 @@ class _VehicleCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   'Linhas ${vehicle.lines.join(', ')} • ${Formatters.integer(vehicle.trips)} viagens',
-                  style: const TextStyle(
-                    color: AppColors.muted,
+                  style: TextStyle(
+                    color: context.palette.muted,
                     fontSize: 11.5,
                   ),
                 ),
@@ -184,7 +184,7 @@ class _VehicleCard extends StatelessWidget {
             '${Formatters.decimal(vehicle.totalKm)} km',
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.muted),
+          Icon(Icons.chevron_right, color: context.palette.muted),
         ],
       ),
     ),

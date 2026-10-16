@@ -11,6 +11,9 @@ import 'data_service.dart';
 import 'dataset_importer.dart';
 import 'document_store.dart';
 import 'errors.dart';
+import 'profile_image.dart';
+import 'identity_migrations.dart';
+import 'user_preferences.dart';
 
 class SemobApi {
   SemobApi(
@@ -40,6 +43,13 @@ class SemobApi {
     ..post('/api/v1/auth/login', _login)
     ..post('/api/v1/auth/logout', _logout)
     ..get('/api/v1/auth/me', _me)
+    ..patch('/api/v1/auth/profile', _updateProfile)
+    ..get('/api/v1/auth/avatar', _avatar)
+    ..put('/api/v1/auth/avatar', _saveAvatar)
+    ..delete('/api/v1/auth/avatar', _removeAvatar)
+    ..post('/api/v1/auth/password', _changePassword)
+    ..get('/api/v1/auth/sessions', _sessions)
+    ..post('/api/v1/auth/sessions/revoke-others', _revokeOtherSessions)
     ..post('/api/v1/auth/password-recovery/request', _requestRecovery)
     ..post('/api/v1/auth/password-recovery/verify', _verifyRecovery)
     ..post('/api/v1/auth/password-recovery/reset', _resetRecovery)
@@ -98,7 +108,8 @@ class SemobApi {
         'Access-Control-Allow-Headers':
             'Content-Type, Authorization, X-Requested-With',
       if (validOrigin)
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, OPTIONS',
+        'Access-Control-Allow-Methods':
+            'GET, POST, PUT, PATCH, DELETE, OPTIONS',
       'Access-Control-Expose-Headers': 'Content-Disposition',
     };
     try {
@@ -164,7 +175,7 @@ class SemobApi {
         'status': ready ? 'ok' : 'not-ready',
         'identity': 'postgresql',
         'data': data.store.engine,
-        'schemaVersion': 1,
+        'schemaVersion': identityMigrations.keys.last,
       }, status: ready ? 200 : 503);
     } catch (_) {
       return json({'status': 'not-ready'}, status: 503);
@@ -196,6 +207,73 @@ class SemobApi {
   }
 
   Future<Response> _me(Request r) async => json(await _require(r));
+  Future<Response> _updateProfile(Request r) async {
+    final user = await _require(r);
+    _limit('profile:${user['id']}', 30, const Duration(minutes: 15));
+    return json(
+      await auth.updateProfile(user['id'] as String, await readBody(r)),
+    );
+  }
+
+  Future<Response> _avatar(Request r) async {
+    final user = await _require(r);
+    final encoded = await auth.avatar(user['id'] as String);
+    if (encoded == null) {
+      throw const ApiError(404, 'Foto de perfil não cadastrada.');
+    }
+    return Response.ok(
+      base64Decode(encoded),
+      headers: {'Content-Type': 'image/png'},
+    );
+  }
+
+  Future<Response> _saveAvatar(Request r) async {
+    final user = await _require(r);
+    _limit('avatar:${user['id']}', 15, const Duration(minutes: 15));
+    final body = await readBody(r, maxBytes: 2200000);
+    if (body.keys.any((key) => key != 'content')) {
+      throw const ApiError(
+        400,
+        'Envie um arquivo do computador, sem URL externa.',
+      );
+    }
+    final content = text(body, 'content');
+    if (content.length > 2097152) {
+      throw const ApiError(400, 'Imagem maior que 1,5 MB.');
+    }
+    final normalized = await prepareAvatar(base64Decode(content));
+    return json(
+      await auth.saveAvatar(user['id'] as String, base64Encode(normalized)),
+    );
+  }
+
+  Future<Response> _removeAvatar(Request r) async {
+    final user = await _require(r);
+    return json(await auth.saveAvatar(user['id'] as String, null));
+  }
+
+  Future<Response> _changePassword(Request r) async {
+    final user = await _require(r);
+    _limit('password:${user['id']}', 10, const Duration(minutes: 15));
+    await auth.changeOwnPassword(
+      user['id'] as String,
+      _token(r)!,
+      await readBody(r),
+    );
+    return json({'ok': true});
+  }
+
+  Future<Response> _sessions(Request r) async => json({
+    'active': await auth.sessionCount((await _require(r))['id'] as String),
+  });
+
+  Future<Response> _revokeOtherSessions(Request r) async {
+    final user = await _require(r);
+    await auth.revokeOtherSessions(user['id'] as String, _token(r)!);
+    await auth.log(user['id'] as String, 'profile.sessions_revoke', {});
+    return json({'active': await auth.sessionCount(user['id'] as String)});
+  }
+
   Future<Response> _logout(Request r) async {
     final token = _token(r);
     if (token != null) await auth.logout(token);
@@ -539,11 +617,18 @@ class SemobApi {
           if (e.value is String) e.key.toString(): e.value as String,
     };
     _validateQuery(query);
-    final context = await data.assistantContext(query);
+    final prefs = await auth.preferences(user['id'] as String);
+    final context = prefs['aiUseContext'] == true
+        ? await data.assistantContext(query)
+        : <String, dynamic>{
+            'period': await data.period(query),
+            'sources': <String>[],
+          };
     try {
       final response = await _post(aiUrl!, {
         aiRequestField: message,
         'context': context,
+        'preferences': aiPreferences(prefs),
       }, key: aiKey);
       final answer = response[aiResponseField];
       if (answer is! String || answer.trim().isEmpty) {

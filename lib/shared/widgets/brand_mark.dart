@@ -1,56 +1,64 @@
 import 'package:flutter/material.dart';
-
 import '../../core/theme/app_colors.dart';
 
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.onDark = false, this.compact = false});
-
-  final bool onDark;
-  final bool compact;
-
+  final bool onDark, compact;
   @override
-  Widget build(BuildContext context) {
-    final foreground = onDark ? AppColors.white : AppColors.ink;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.asset(
-            'assets/images/semob_logo.png',
-            fit: BoxFit.cover,
-            width: compact ? 38 : 46,
-            height: compact ? 38 : 46,
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: compact ? 40 : 50,
+        height: compact ? 40 : 50,
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF0FAF3), Color(0xFFCCEBD9)],
           ),
+          borderRadius: BorderRadius.circular(15),
         ),
-        if (!compact) ...[
-          const SizedBox(width: 12),
-          Column(
+        child: Image.asset('assets/images/semob_logo.png', fit: BoxFit.contain),
+      ),
+      if (!compact) ...[
+        const SizedBox(width: 14),
+        Flexible(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'SEMOB',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: foreground,
+                  color: onDark ? Colors.white : context.palette.ink,
                   fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  letterSpacing: 0,
+                  fontSize: 21,
+                  height: 1.1,
+                  letterSpacing: 1.2,
                 ),
               ),
+              const SizedBox(height: 6),
               Text(
-                'SÃO CAETANO DO SUL',
+                'São Caetano do Sul',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: onDark ? Colors.white70 : AppColors.muted,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 8,
-                  letterSpacing: 0,
+                  color: onDark
+                      ? const Color(0xFFB9CEC1)
+                      : context.palette.muted,
+                  fontSize: 10,
+                  height: 1.2,
+                  letterSpacing: .2,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ],
-    );
-  }
+    ],
+  );
 }

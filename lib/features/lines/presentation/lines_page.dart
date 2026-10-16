@@ -114,7 +114,7 @@ class _LineCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          border: Border.all(color: AppColors.line),
+          border: Border.all(color: context.palette.line),
           borderRadius: BorderRadius.circular(9),
         ),
         child: Column(
@@ -145,7 +145,7 @@ class _LineCard extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                Icon(Icons.chevron_right_rounded, color: context.palette.muted),
               ],
             ),
             const SizedBox(height: 16),
@@ -197,15 +197,15 @@ class _LineMetric extends StatelessWidget {
     children: [
       Text(
         label,
-        style: const TextStyle(color: AppColors.muted, fontSize: 10.5),
+        style: TextStyle(color: context.palette.muted, fontSize: 10.5),
       ),
       const SizedBox(height: 3),
       Text(
         value,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: AppColors.ink,
+        style: TextStyle(
+          color: context.palette.ink,
           fontWeight: FontWeight.w700,
           fontSize: 13,
         ),

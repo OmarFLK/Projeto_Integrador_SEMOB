@@ -100,7 +100,7 @@ class FinancialPage extends ConsumerWidget {
                       ChartSeries(
                         name: 'Saldo',
                         values: days.map((d) => d.finalBalance).toList(),
-                        color: AppColors.blue,
+                        color: context.palette.blue,
                       ),
                     ],
                   ),

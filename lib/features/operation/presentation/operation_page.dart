@@ -150,7 +150,7 @@ class _OperationContent extends StatelessWidget {
                 ChartSeries(
                   name: 'Veículos',
                   values: days.map((item) => item.vehicles.toDouble()).toList(),
-                  color: AppColors.blue,
+                  color: context.palette.blue,
                 ),
                 ChartSeries(
                   name: 'Máx. por faixa',
@@ -181,7 +181,7 @@ class _OperationContent extends StatelessWidget {
                 ChartSeries(
                   name: 'Improdutiva',
                   values: days.map((item) => item.unproductiveKm).toList(),
-                  color: AppColors.amber,
+                  color: context.palette.amber,
                 ),
                 ChartSeries(
                   name: 'Total',
@@ -208,8 +208,8 @@ class _OperationContent extends StatelessWidget {
                       padding: const EdgeInsets.all(11),
                       decoration: BoxDecoration(
                         color: day.tripDifference >= 7
-                            ? AppColors.redSoft
-                            : AppColors.amberSoft,
+                            ? context.palette.redSoft
+                            : context.palette.amberSoft,
                         borderRadius: BorderRadius.circular(7),
                       ),
                       child: Row(
@@ -217,8 +217,8 @@ class _OperationContent extends StatelessWidget {
                           Icon(
                             Icons.warning_amber_rounded,
                             color: day.tripDifference >= 7
-                                ? AppColors.red
-                                : AppColors.amber,
+                                ? context.palette.red
+                                : context.palette.amber,
                             size: 19,
                           ),
                           const SizedBox(width: 9),

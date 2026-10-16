@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum AccessLevel { manager, analyst, operator, administrator }
 
 extension AccessLevelLabel on AccessLevel {
@@ -22,6 +24,9 @@ class AppUser {
     this.id = '',
     this.email = '',
     this.permissions = const [],
+    this.createdAt,
+    this.avatarVersion,
+    this.avatarBytes,
   });
 
   final String name;
@@ -35,6 +40,23 @@ class AppUser {
   final String id;
   final String email;
   final List<String> permissions;
+  final String? createdAt, avatarVersion;
+  final Uint8List? avatarBytes;
+  AppUser withAvatar(Uint8List? bytes) => AppUser(
+    name: name,
+    identifier: identifier,
+    role: role,
+    department: department,
+    accessLevel: accessLevel,
+    status: status,
+    lastAccess: lastAccess,
+    id: id,
+    email: email,
+    permissions: permissions,
+    createdAt: createdAt,
+    avatarVersion: avatarVersion,
+    avatarBytes: bytes,
+  );
   bool can(String permission) => permissions.contains(permission);
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
@@ -49,5 +71,7 @@ class AppUser {
     status: json['active'] == true ? 'Ativo' : 'Inativo',
     lastAccess: json['lastAccess'] as String? ?? 'Primeiro acesso',
     permissions: (json['permissions'] as List? ?? []).cast<String>(),
+    createdAt: json['createdAt'] as String?,
+    avatarVersion: json['avatarVersion'] as String?,
   );
 }

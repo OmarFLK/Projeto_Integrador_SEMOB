@@ -24,23 +24,28 @@ const identityMigrations = <int, List<String>>{
     '''CREATE TABLE identity_imports(source_hash TEXT PRIMARY KEY,
       imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, counts TEXT NOT NULL)''',
   ],
+  2: [
+    'ALTER TABLE users ADD COLUMN avatar_data TEXT CHECK(avatar_data IS NULL OR octet_length(avatar_data)<=2097152)',
+    'ALTER TABLE users ADD COLUMN avatar_version TEXT',
+  ],
 };
 
 /// Whitelist shared by SQLite migration and logical backup/restore.
-const identityColumns = <String, List<String>>{
-  'users': [
-    'id',
-    'email',
-    'identifier',
-    'name',
-    'job_title',
-    'department',
-    'role',
-    'active',
-    'password_hash',
-    'created_at',
-    'last_access',
-  ],
+const legacyUserColumns = <String>[
+  'id',
+  'email',
+  'identifier',
+  'name',
+  'job_title',
+  'department',
+  'role',
+  'active',
+  'password_hash',
+  'created_at',
+  'last_access',
+];
+const legacyIdentityColumns = <String, List<String>>{
+  'users': legacyUserColumns,
   'sessions': ['token_hash', 'user_id', 'expires_at'],
   'recovery': [
     'id',
@@ -54,4 +59,9 @@ const identityColumns = <String, List<String>>{
   ],
   'preferences': ['user_id', 'json'],
   'audit': ['id', 'user_id', 'action', 'created_at', 'details'],
+};
+
+final identityColumns = <String, List<String>>{
+  ...legacyIdentityColumns,
+  'users': [...legacyUserColumns, 'avatar_data', 'avatar_version'],
 };

@@ -122,16 +122,20 @@ class _AnomalyItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, soft) = switch (item.level) {
-      AnomalyLevel.critical => ('CRÍTICO', AppColors.red, AppColors.redSoft),
+      AnomalyLevel.critical => (
+        'CRÍTICO',
+        context.palette.red,
+        context.palette.redSoft,
+      ),
       AnomalyLevel.attention => (
         'ATENÇÃO',
-        AppColors.amber,
-        AppColors.amberSoft,
+        context.palette.amber,
+        context.palette.amberSoft,
       ),
       AnomalyLevel.information => (
         'INFORMATIVO',
-        AppColors.blue,
-        AppColors.blueSoft,
+        context.palette.blue,
+        context.palette.blueSoft,
       ),
     };
     final details = Column(
@@ -157,7 +161,7 @@ class _AnomalyItem extends StatelessWidget {
             const SizedBox(width: 9),
             Text(
               item.date,
-              style: const TextStyle(color: AppColors.muted, fontSize: 11),
+              style: TextStyle(color: context.palette.muted, fontSize: 11),
             ),
           ],
         ),
@@ -169,7 +173,7 @@ class _AnomalyItem extends StatelessWidget {
         const SizedBox(height: 5),
         Text(
           'Linha ${item.line}${item.vehicle == null ? '' : ' • Veículo ${item.vehicle}'} • ${item.metric}',
-          style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+          style: TextStyle(color: context.palette.muted, fontSize: 11.5),
         ),
       ],
     );
@@ -177,7 +181,7 @@ class _AnomalyItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 9),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.line),
+        border: Border.all(color: context.palette.line),
         borderRadius: BorderRadius.circular(8),
       ),
       child: AppBreakpoints.isMobile(context)

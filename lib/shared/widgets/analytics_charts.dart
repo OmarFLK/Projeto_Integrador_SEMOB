@@ -52,9 +52,9 @@ class AnalyticsLineChart extends StatelessWidget {
                 drawVerticalLine: false,
                 horizontalInterval: maximum / 4,
                 getDrawingHorizontalLine: (value) =>
-                    const FlLine(color: AppColors.line, strokeWidth: 0.8),
+                    FlLine(color: context.palette.line, strokeWidth: 0.8),
               ),
-              titlesData: _titles(maximum),
+              titlesData: _titles(context, maximum),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
                   getTooltipColor: (_) => AppColors.graphite,
@@ -86,7 +86,7 @@ class AnalyticsLineChart extends StatelessWidget {
     );
   }
 
-  FlTitlesData _titles(double maximum) {
+  FlTitlesData _titles(BuildContext context, double maximum) {
     return FlTitlesData(
       topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -99,7 +99,7 @@ class AnalyticsLineChart extends StatelessWidget {
             meta: meta,
             child: Text(
               _compact(value),
-              style: const TextStyle(color: AppColors.muted, fontSize: 10),
+              style: TextStyle(color: context.palette.muted, fontSize: 10),
             ),
           ),
         ),
@@ -116,7 +116,7 @@ class AnalyticsLineChart extends StatelessWidget {
               meta: meta,
               child: Text(
                 labels[index],
-                style: const TextStyle(color: AppColors.muted, fontSize: 10),
+                style: TextStyle(color: context.palette.muted, fontSize: 10),
               ),
             );
           },
@@ -162,7 +162,7 @@ class AnalyticsBarChart extends StatelessWidget {
                 drawVerticalLine: false,
                 horizontalInterval: maximum / 4,
                 getDrawingHorizontalLine: (value) =>
-                    const FlLine(color: AppColors.line, strokeWidth: 0.8),
+                    FlLine(color: context.palette.line, strokeWidth: 0.8),
               ),
               titlesData: FlTitlesData(
                 topTitles: const AxisTitles(
@@ -180,8 +180,8 @@ class AnalyticsBarChart extends StatelessWidget {
                       meta: meta,
                       child: Text(
                         _compact(value),
-                        style: const TextStyle(
-                          color: AppColors.muted,
+                        style: TextStyle(
+                          color: context.palette.muted,
                           fontSize: 10,
                         ),
                       ),
@@ -202,8 +202,8 @@ class AnalyticsBarChart extends StatelessWidget {
                         meta: meta,
                         child: Text(
                           labels[index],
-                          style: const TextStyle(
-                            color: AppColors.muted,
+                          style: TextStyle(
+                            color: context.palette.muted,
                             fontSize: 10,
                           ),
                         ),
@@ -279,7 +279,7 @@ class DistributionDonut extends StatelessWidget {
                     ),
                     PieChartSectionData(
                       value: secondary,
-                      color: AppColors.amber,
+                      color: context.palette.amber,
                       radius: 20,
                       showTitle: false,
                     ),
@@ -291,16 +291,16 @@ class DistributionDonut extends StatelessWidget {
                 children: [
                   Text(
                     '${percentage.toStringAsFixed(1).replaceAll('.', ',')}%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 21,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.ink,
+                      color: context.palette.ink,
                     ),
                   ),
                   Text(
                     primaryLabel,
-                    style: const TextStyle(
-                      color: AppColors.muted,
+                    style: TextStyle(
+                      color: context.palette.muted,
                       fontSize: 11,
                     ),
                   ),
@@ -319,7 +319,7 @@ class DistributionDonut extends StatelessWidget {
             ChartSeries(
               name: secondaryLabel,
               values: const [],
-              color: AppColors.amber,
+              color: context.palette.amber,
             ),
           ],
         ),
@@ -354,7 +354,7 @@ class _ChartLegend extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   item.name,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                  style: TextStyle(color: context.palette.muted, fontSize: 11),
                 ),
               ],
             ),

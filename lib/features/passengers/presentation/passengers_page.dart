@@ -154,12 +154,12 @@ class _StackedPassengerChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Wrap(
+        Wrap(
           spacing: 16,
           children: [
             _Legend(color: AppColors.green, label: 'Catraca'),
-            _Legend(color: AppColors.blue, label: 'Antecipados'),
-            _Legend(color: AppColors.amber, label: 'Não pagantes'),
+            _Legend(color: context.palette.blue, label: 'Antecipados'),
+            _Legend(color: context.palette.amber, label: 'Não pagantes'),
           ],
         ),
         const SizedBox(height: 16),
@@ -178,7 +178,7 @@ class _StackedPassengerChart extends StatelessWidget {
                 drawVerticalLine: false,
                 horizontalInterval: 13000,
                 getDrawingHorizontalLine: (_) =>
-                    const FlLine(color: AppColors.line, strokeWidth: .8),
+                    FlLine(color: context.palette.line, strokeWidth: .8),
               ),
               titlesData: FlTitlesData(
                 topTitles: const AxisTitles(
@@ -196,8 +196,8 @@ class _StackedPassengerChart extends StatelessWidget {
                       meta: meta,
                       child: Text(
                         '${(value / 1000).round()} mil',
-                        style: const TextStyle(
-                          color: AppColors.muted,
+                        style: TextStyle(
+                          color: context.palette.muted,
                           fontSize: 10,
                         ),
                       ),
@@ -218,8 +218,8 @@ class _StackedPassengerChart extends StatelessWidget {
                         meta: meta,
                         child: Text(
                           '${data[index].day}',
-                          style: const TextStyle(
-                            color: AppColors.muted,
+                          style: TextStyle(
+                            color: context.palette.muted,
                             fontSize: 10,
                           ),
                         ),
@@ -248,12 +248,12 @@ class _StackedPassengerChart extends StatelessWidget {
                           BarChartRodStackItem(
                             data[i].turnstile.toDouble(),
                             data[i].paying.toDouble(),
-                            AppColors.blue,
+                            context.palette.blue,
                           ),
                           BarChartRodStackItem(
                             data[i].paying.toDouble(),
                             data[i].total.toDouble(),
-                            AppColors.amber,
+                            context.palette.amber,
                           ),
                         ],
                       ),
@@ -285,7 +285,7 @@ class _Legend extends StatelessWidget {
         ),
       ),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+      Text(label, style: TextStyle(color: context.palette.muted, fontSize: 11)),
     ],
   );
 }
@@ -306,14 +306,14 @@ class _DemandHighlight extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: muted ? AppColors.canvas : AppColors.greenLight,
+        color: muted ? context.palette.canvas : context.palette.greenLight,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            color: muted ? AppColors.muted : AppColors.green,
+            color: muted ? context.palette.muted : AppColors.green,
             size: 22,
           ),
           const SizedBox(width: 11),
@@ -323,13 +323,13 @@ class _DemandHighlight extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 11),
+                  style: TextStyle(color: context.palette.muted, fontSize: 11),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: AppColors.ink,
+                  style: TextStyle(
+                    color: context.palette.ink,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),

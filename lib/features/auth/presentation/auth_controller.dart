@@ -1,6 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/user.dart';
 import '../../../services/api_client.dart';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
+
+Future<AppUser> loadUserAvatar(ApiClient client, AppUser user) async {
+  if (user.avatarVersion == null) return user;
+  try {
+    final response = await client.dio.get<List<int>>(
+      'auth/avatar',
+      queryParameters: {'v': user.avatarVersion},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return user.withAvatar(Uint8List.fromList(response.data!));
+  } catch (_) {
+    return user;
+  }
+}
 
 enum AuthError {
   requiredFields,
@@ -36,7 +52,7 @@ class ApiAuthRepository implements AuthRepository {
   Future<AppUser?> restore() async {
     try {
       final response = await client.dio.get<Map<String, dynamic>>('auth/me');
-      return AppUser.fromJson(response.data!);
+      return await loadUserAvatar(client, AppUser.fromJson(response.data!));
     } catch (_) {
       return null;
     }
@@ -57,8 +73,11 @@ class ApiAuthRepository implements AuthRepository {
       },
     );
     client.token = response.data!['token'] as String;
-    return AppUser.fromJson(
-      Map<String, dynamic>.from(response.data!['user'] as Map),
+    return loadUserAvatar(
+      client,
+      AppUser.fromJson(
+        Map<String, dynamic>.from(response.data!['user'] as Map),
+      ),
     );
   }
 
@@ -138,6 +157,16 @@ class AuthController extends Notifier<AuthState> {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  Future<void> applyUser(Map<String, dynamic> value) async {
+    final user = await loadUserAvatar(
+      ref.read(apiClientProvider),
+      AppUser.fromJson(value),
+    );
+    if (ref.mounted) {
+      state = AuthState(user: user, rememberAccess: state.rememberAccess);
     }
   }
 }

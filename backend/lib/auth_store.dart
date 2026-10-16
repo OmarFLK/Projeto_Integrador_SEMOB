@@ -7,6 +7,7 @@ import 'postgres_database.dart';
 import 'identity_migrations.dart';
 import 'document_store.dart';
 import 'errors.dart';
+import 'user_preferences.dart';
 
 String secureToken() => base64Url.encode(
   List<int>.generate(32, (_) => Random.secure().nextInt(256)),
@@ -110,6 +111,8 @@ class AuthStore {
     'accessLevel': user['role'],
     'active': user['active'] == 1,
     'lastAccess': user['last_access'],
+    'createdAt': user['created_at'],
+    'avatarVersion': user['avatar_version'],
     'permissions': permissions(user['role'] as String),
   };
   Future<Document?> _user(String id) async {
@@ -124,7 +127,7 @@ class AuthStore {
   }
 
   Future<List<Document>> listUsers() async => (await db.select(
-    'SELECT * FROM users ORDER BY name',
+    'SELECT ${_publicColumns.join(',')} FROM users ORDER BY name',
   )).map(publicUser).toList();
   Future<Document> createUser(Document input, {String? actor}) async {
     _validateUserFields(input);
@@ -275,7 +278,7 @@ class AuthStore {
   Future<Document?> authenticate(String? token) async {
     if (token == null || token.length > 256) return null;
     final rows = await db.select(
-      'SELECT users.* FROM users JOIN sessions ON sessions.user_id=users.id WHERE sessions.token_hash=? AND sessions.expires_at>? AND users.active=1',
+      'SELECT ${_publicColumns.map((c) => 'users.$c').join(',')} FROM users JOIN sessions ON sessions.user_id=users.id WHERE sessions.token_hash=? AND sessions.expires_at>? AND users.active=1',
       [tokenHash(token), DateTime.now().toUtc().toIso8601String()],
     );
     return rows.isEmpty
@@ -293,24 +296,166 @@ class AuthStore {
       [id],
     );
     return rows.isEmpty
-        ? {'compact': false}
-        : Map<String, dynamic>.from(
-            jsonDecode(rows.first['json'] as String) as Map,
-          );
+        ? {...defaultPreferences}
+        : {
+            ...defaultPreferences,
+            ...Map<String, dynamic>.from(
+              jsonDecode(rows.first['json'] as String) as Map,
+            ),
+          };
   }
 
-  Future<void> savePreferences(String id, Document input) async {
-    if (input['compact'] is! bool) {
-      throw const ApiError(400, 'Preferência inválida.');
-    }
+  Future<void> savePreferences(
+    String id,
+    Document input,
+  ) => db.transaction(() async {
+    final merged = validatePreferences(await preferences(id), input);
     await db.execute(
       'INSERT INTO preferences VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET json=excluded.json',
-      [
-        id,
-        jsonEncode({'compact': input['compact']}),
-      ],
+      [id, jsonEncode(merged)],
     );
+  });
+
+  Future<Document> updateProfile(String id, Document input) async {
+    const allowed = {
+      'name',
+      'email',
+      'jobTitle',
+      'department',
+      'currentPassword',
+    };
+    if (input.keys.any((key) => !allowed.contains(key))) {
+      throw const ApiError(
+        400,
+        'Este campo deve ser gerenciado pelo administrador.',
+      );
+    }
+    _validateUserFields(input);
+    final old = await _user(id);
+    if (old == null) throw const ApiError(404, 'Usuário não encontrado.');
+    final name = (input['name'] as String? ?? old['name'] as String).trim();
+    final email = (input['email'] as String? ?? old['email'] as String)
+        .trim()
+        .toLowerCase();
+    if (name.isEmpty ||
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+      throw const ApiError(400, 'Informe nome e e-mail válidos.');
+    }
+    final emailChanged = email != old['email'];
+    if (emailChanged) {
+      await _checkCurrentPassword(old, input['currentPassword']);
+    }
+    try {
+      return await db.transaction(() async {
+        final current = await _user(id);
+        if (current == null ||
+            current['active'] != 1 ||
+            emailChanged && current['password_hash'] != old['password_hash']) {
+          throw const ApiError(
+            409,
+            'A conta mudou. Recarregue e tente novamente.',
+          );
+        }
+        await db.execute(
+          'UPDATE users SET name=?,email=?,job_title=?,department=? WHERE id=?',
+          [
+            name,
+            email,
+            input['jobTitle'] ?? current['job_title'],
+            input['department'] ?? current['department'],
+            id,
+          ],
+        );
+        if (emailChanged) {
+          await db.execute('DELETE FROM recovery WHERE user_id=?', [id]);
+        }
+        await log(id, 'profile.update', {
+          'fields': input.keys.where((k) => k != 'currentPassword').toList(),
+        });
+        return getUser(id);
+      });
+    } on ServerException catch (error) {
+      if (error.code != '23505') rethrow;
+      throw const ApiError(409, 'Este e-mail já está cadastrado.');
+    }
   }
+
+  Future<void> _checkCurrentPassword(Document user, Object? password) async {
+    if (password is! String ||
+        password.isEmpty ||
+        password.length > 256 ||
+        !await verifyPassword(password, user['password_hash'] as String)) {
+      throw const ApiError(400, 'Senha atual incorreta.');
+    }
+  }
+
+  Future<void> changeOwnPassword(
+    String id,
+    String token,
+    Document input,
+  ) async {
+    final old = await _user(id);
+    if (old == null) throw const ApiError(404, 'Usuário não encontrado.');
+    final password = _text(input, 'password');
+    if (password != input['passwordConfirmation']) {
+      throw const ApiError(400, 'As novas senhas não coincidem.');
+    }
+    await _checkCurrentPassword(old, input['currentPassword']);
+    final hash = await hashPassword(password);
+    await db.transaction(() async {
+      final current = await _user(id);
+      if (current == null ||
+          current['active'] != 1 ||
+          current['password_hash'] != old['password_hash'] ||
+          (await authenticate(token))?['id'] != id) {
+        throw const ApiError(
+          409,
+          'A senha mudou. Recarregue e tente novamente.',
+        );
+      }
+      await db.execute('UPDATE users SET password_hash=? WHERE id=?', [
+        hash,
+        id,
+      ]);
+      await db.execute('DELETE FROM recovery WHERE user_id=?', [id]);
+      await revokeOtherSessions(id, token);
+      await log(id, 'profile.password_change', {});
+    });
+  }
+
+  Future<void> revokeOtherSessions(String id, String token) async {
+    await db.execute('DELETE FROM sessions WHERE user_id=? AND token_hash<>?', [
+      id,
+      tokenHash(token),
+    ]);
+  }
+
+  Future<int> sessionCount(String id) async =>
+      (await db.select(
+            'SELECT COUNT(*) AS n FROM sessions WHERE user_id=? AND expires_at>?',
+            [id, DateTime.now().toUtc().toIso8601String()],
+          )).single['n']
+          as int;
+
+  Future<String?> avatar(String id) async =>
+      (await db.select('SELECT avatar_data FROM users WHERE id=?', [
+            id,
+          ])).firstOrNull?['avatar_data']
+          as String?;
+
+  Future<Document> saveAvatar(String id, String? content) =>
+      db.transaction(() async {
+        await db.execute(
+          'UPDATE users SET avatar_data=?,avatar_version=? WHERE id=?',
+          [content, content == null ? null : tokenHash(content), id],
+        );
+        await log(
+          id,
+          content == null ? 'profile.avatar_remove' : 'profile.avatar_update',
+          {},
+        );
+        return getUser(id);
+      });
 
   Future<void> log(String? id, String action, Document details) async =>
       await db.execute(
@@ -410,6 +555,20 @@ class AuthStore {
 
   Future<void> close() => db.close();
 }
+
+const _publicColumns = [
+  'id',
+  'email',
+  'identifier',
+  'name',
+  'job_title',
+  'department',
+  'role',
+  'active',
+  'created_at',
+  'last_access',
+  'avatar_version',
+];
 
 void _validateUserFields(Document input) {
   for (final key in ['name', 'email', 'identifier', 'jobTitle', 'department']) {

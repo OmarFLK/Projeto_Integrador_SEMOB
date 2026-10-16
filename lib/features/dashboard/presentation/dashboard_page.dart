@@ -183,14 +183,14 @@ class _DashboardContent extends StatelessWidget {
                   values: passengers
                       .map((item) => item.advance.toDouble())
                       .toList(),
-                  color: AppColors.blue,
+                  color: context.palette.blue,
                 ),
                 ChartSeries(
                   name: 'Não pagantes',
                   values: passengers
                       .map((item) => item.nonPaying.toDouble())
                       .toList(),
-                  color: AppColors.amber,
+                  color: context.palette.amber,
                 ),
                 ChartSeries(
                   name: 'Total',
@@ -254,7 +254,7 @@ class _DashboardContent extends StatelessWidget {
                   values: operations
                       .map((item) => item.unproductiveKm)
                       .toList(),
-                  color: AppColors.amber,
+                  color: context.palette.amber,
                 ),
                 ChartSeries(
                   name: 'Total',
@@ -309,11 +309,11 @@ class _LineSummaryTable extends StatelessWidget {
           return ListTile(
             contentPadding: EdgeInsets.zero,
             leading: CircleAvatar(
-              backgroundColor: AppColors.greenLight,
+              backgroundColor: context.palette.greenLight,
               child: Text(
                 line.code,
-                style: const TextStyle(
-                  color: AppColors.greenDark,
+                style: TextStyle(
+                  color: context.palette.greenDark,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -398,9 +398,9 @@ class _ErrorDashboard extends ConsumerWidget {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            const Icon(
+            Icon(
               Icons.cloud_off_outlined,
-              color: AppColors.red,
+              color: context.palette.red,
               size: 36,
             ),
             const SizedBox(height: 10),
@@ -408,7 +408,7 @@ class _ErrorDashboard extends ConsumerWidget {
             const SizedBox(height: 4),
             Text(
               message,
-              style: const TextStyle(color: AppColors.muted, fontSize: 11),
+              style: TextStyle(color: context.palette.muted, fontSize: 11),
             ),
             TextButton(
               onPressed: () => refreshData(ref),

@@ -14,16 +14,23 @@ Future<Document> exportIdentity(
       'SELECT ${entry.value.join(',')} FROM ${entry.key} ORDER BY ${entry.value.first}',
     );
   }
-  return {'format': 'semob-identity-v1', 'tables': tables};
+  return {'format': 'semob-identity-v2', 'tables': tables};
 }, snapshot: true);
 
 Future<Document> importIdentity(AuthStore auth, Document snapshot) async {
-  if (snapshot['format'] != 'semob-identity-v1' || snapshot['tables'] is! Map) {
+  if (![
+        'semob-identity-v1',
+        'semob-identity-v2',
+      ].contains(snapshot['format']) ||
+      snapshot['tables'] is! Map) {
     throw FormatException('Formato de identidade inválido.');
   }
   final tables = Map<String, dynamic>.from(snapshot['tables'] as Map);
+  final columns = snapshot['format'] == 'semob-identity-v1'
+      ? legacyIdentityColumns
+      : identityColumns;
   final canonical = <String, dynamic>{};
-  for (final entry in identityColumns.entries) {
+  for (final entry in columns.entries) {
     final rows = tables[entry.key];
     if (rows is! List) throw FormatException('Tabela ausente: ${entry.key}.');
     canonical[entry.key] =
@@ -60,7 +67,7 @@ Future<Document> importIdentity(AuthStore auth, Document snapshot) async {
       }
     }
     final counts = <String, int>{};
-    for (final entry in identityColumns.entries) {
+    for (final entry in columns.entries) {
       final rows = canonical[entry.key] as List;
       for (final row in rows) {
         if (entry.key == 'users' &&
@@ -124,7 +131,7 @@ Document readSqliteIdentity(String path) {
   try {
     source.execute('BEGIN');
     final tables = <String, dynamic>{};
-    for (final entry in identityColumns.entries) {
+    for (final entry in legacyIdentityColumns.entries) {
       final columns = source
           .select('PRAGMA table_info(${entry.key})')
           .map((row) => row['name'])

@@ -45,6 +45,27 @@ class TestAuthRepository implements AuthRepository {
 }
 
 class TestHttpAdapter implements HttpClientAdapter {
+  final preferences = <String, dynamic>{'compact': false, 'theme': 'system'};
+  final profile = <String, dynamic>{
+    'id': 'test-user',
+    'email': 'admin@example.org',
+    'name': 'Admin Teste',
+    'identifier': 'test',
+    'jobTitle': 'Administrador',
+    'department': 'SEMOB',
+    'accessLevel': 'administrator',
+    'active': true,
+    'createdAt': '2026-10-01T12:00:00Z',
+    'lastAccess': '2026-10-15T20:00:00Z',
+    'permissions': [
+      'read',
+      'financial',
+      'export',
+      'assistant',
+      'import',
+      'users',
+    ],
+  };
   final queries = <String, Map<String, dynamic>>{};
   final requests = <RequestOptions>[];
   @override
@@ -55,6 +76,12 @@ class TestHttpAdapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final path = options.uri.path.split('/').last;
+    if (path == 'preferences' && options.method == 'PUT') {
+      preferences.addAll(Map<String, dynamic>.from(options.data as Map));
+    }
+    if (path == 'profile' && options.method == 'PATCH') {
+      profile.addAll(Map<String, dynamic>.from(options.data as Map));
+    }
     queries[path] = options.uri.queryParameters;
     final date = '${options.uri.queryParameters['period'] ?? '2026-08'}-01';
     final operation = [
@@ -130,7 +157,10 @@ class TestHttpAdapter implements HttpClientAdapter {
         'timeRanges': ['04h–05h'],
         'datasets': ['operation_days', 'passenger_days', 'trips'],
       },
-      'preferences' => {'compact': false},
+      'preferences' => preferences,
+      'profile' || 'me' => profile,
+      'sessions' => {'active': 2},
+      'revoke-others' => {'active': 1},
       'coverage' => {
         'domains': {
           for (final d in ['operation', 'passengers', 'financial'])
