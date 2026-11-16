@@ -126,7 +126,7 @@ void main() {
       expect(await secondProcess.avatar(id), isNotNull);
 
       final snapshot = await exportIdentity(auth);
-      expect(snapshot['format'], 'semob-identity-v2');
+      expect(snapshot['format'], 'semob-identity-v3');
       final restored = await restoredFixture.open();
       await importIdentity(restored, snapshot);
       expect(await restored.avatar(id), await auth.avatar(id));

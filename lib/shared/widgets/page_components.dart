@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/responsive/breakpoints.dart';
 import '../../core/theme/app_colors.dart';
@@ -7,43 +8,86 @@ import '../../core/theme/app_spacing.dart';
 import '../../models/transport_models.dart';
 import '../../services/api_client.dart' show apiError;
 import '../providers/app_providers.dart';
+import 'forest_widgets.dart';
+import 'viewport_entrance.dart';
+import 'equal_height_grid.dart';
+export 'equal_height_grid.dart';
+import 'analytics_charts.dart';
+import 'global_filter_bar.dart';
+export 'forest_widgets.dart';
+export 'module_tabs.dart';
 
 class PageBody extends ConsumerWidget {
-  const PageBody({super.key, required this.children, this.maxWidth = 1600});
+  const PageBody({
+    super.key,
+    required this.children,
+    this.maxWidth = 1600,
+    this.controller,
+  });
 
   final List<Widget> children;
   final double maxWidth;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mobile = AppBreakpoints.isMobile(context);
     final compact = ref.watch(preferencesProvider).value?['compact'] == true;
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        compact
-            ? AppSpacing.sm
-            : mobile
-            ? AppSpacing.md
-            : AppSpacing.lg,
-        compact
-            ? AppSpacing.sm
-            : mobile
-            ? AppSpacing.md
-            : AppSpacing.lg,
-        compact
-            ? AppSpacing.sm
-            : mobile
-            ? AppSpacing.md
-            : AppSpacing.lg,
-        mobile ? 96 : AppSpacing.xl,
+    return KeyedSubtree(
+      key: ValueKey(
+        '${GoRouterState.of(context).uri.path}:${GoRouterState.of(context).uri.queryParameters}',
       ),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
+      child: SingleChildScrollView(
+        controller: controller,
+        padding: EdgeInsets.fromLTRB(
+          compact
+              ? AppSpacing.sm
+              : mobile
+              ? AppSpacing.md
+              : AppSpacing.lg,
+          compact
+              ? AppSpacing.sm
+              : mobile
+              ? AppSpacing.md
+              : AppSpacing.lg,
+          compact
+              ? AppSpacing.sm
+              : mobile
+              ? AppSpacing.md
+              : AppSpacing.lg,
+          112,
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...children,
+                const SizedBox(height: 24),
+                Text(
+                  'SEMOB  /  São Caetano do Sul',
+                  style: TextStyle(
+                    color: context.palette.muted,
+                    fontSize: 10,
+                    letterSpacing: 1,
+                  ),
+                ),
+                if (const String.fromEnvironment(
+                  'SEMOB_PRODUCT_CREDIT',
+                ).isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    const String.fromEnvironment('SEMOB_PRODUCT_CREDIT'),
+                    style: TextStyle(
+                      color: context.palette.muted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -84,20 +128,34 @@ class PageHeader extends StatelessWidget {
         ),
       ],
     );
-    if (action == null) return titleBlock;
+    final path = GoRouterState.of(context).uri.path;
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 1100) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [titleBlock, const SizedBox(height: 14), action!],
+        final periodOnly =
+            action is GlobalFilterBar &&
+            !path.startsWith('/lines') &&
+            !['/trips', '/fleet', '/anomalies'].contains(path);
+        if (action != null &&
+            constraints.maxWidth >= 900 &&
+            (periodOnly || action is! GlobalFilterBar)) {
+          return Row(
+            children: [
+              Expanded(child: titleBlock),
+              const SizedBox(width: 24),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: periodOnly ? 280 : constraints.maxWidth * .45,
+                ),
+                child: action!,
+              ),
+            ],
           );
         }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: titleBlock),
-            SizedBox(width: constraints.maxWidth * .7, child: action!),
+            titleBlock,
+            if (action != null) ...[const SizedBox(height: 20), action!],
           ],
         );
       },
@@ -125,83 +183,86 @@ class MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: context.palette.greenLight,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: AppColors.green, size: 20),
+    return SemobGlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: context.palette.greenLight,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: change == null
-                        ? const SizedBox.shrink()
-                        : FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
+                child: Icon(icon, color: context.palette.green, size: 20),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: change == null
+                      ? const SizedBox.shrink()
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: positive
+                                  ? context.palette.greenLight
+                                  : context.palette.redSoft,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              change!,
+                              style: TextStyle(
                                 color: positive
-                                    ? context.palette.greenLight
-                                    : context.palette.redSoft,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                change!,
-                                style: TextStyle(
-                                  color: positive
-                                      ? context.palette.greenDark
-                                      : context.palette.red,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                    ? context.palette.greenDark
+                                    : context.palette.red,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                  ),
+                        ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: context.palette.ink,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: context.palette.muted, fontSize: 13),
-            ),
-            if (helper != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                helper!,
-                style: TextStyle(color: context.palette.muted, fontSize: 10.5),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SemobAnimatedCounter(
+              value: value,
+              style:
+                  Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: context.palette.ink,
+                  ) ??
+                  const TextStyle(fontSize: 24),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: context.palette.muted, fontSize: 13),
+          ),
+          ...[
+            const SizedBox(height: 6),
+            Text(
+              helper ?? '',
+              style: TextStyle(color: context.palette.muted, fontSize: 10.5),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -214,23 +275,22 @@ class MetricsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final columns = width < AppBreakpoints.mobile
-        ? 2
-        : width < AppBreakpoints.desktop
-        ? 2
-        : 4;
-    const gap = 12.0;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final itemWidth =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: children
-              .map((child) => SizedBox(width: itemWidth, child: child))
-              .toList(),
+        final width = constraints.maxWidth;
+        final columns = width < 340
+            ? 1
+            : width < 760
+            ? 2
+            : width < 1000
+            ? (children.length % 3 == 0 ? 3 : 2)
+            : 4;
+        return EqualHeightGrid(
+          columns: columns,
+          children: [
+            for (final entry in children.indexed)
+              ViewportEntrance(order: entry.$1, child: entry.$2),
+          ],
         );
       },
     );
@@ -255,47 +315,99 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: padding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+    return SemobGlassCard(
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: context.palette.ink,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
                       Text(
-                        title,
+                        subtitle!,
                         style: TextStyle(
-                          color: context.palette.ink,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          color: context.palette.muted,
+                          fontSize: 12,
                         ),
                       ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle!,
-                          style: TextStyle(
-                            color: context.palette.muted,
-                            fontSize: 12,
+                    ],
+                  ],
+                ),
+              ),
+              ?trailing,
+              if (trailing == null &&
+                  (child is AnalyticsLineChart ||
+                      child is AnalyticsBarChart ||
+                      child is DistributionDonut ||
+                      child is AnalyticsStackedBarChart))
+                IconButton(
+                  tooltip: 'Ampliar gráfico',
+                  icon: const Icon(Icons.open_in_full_rounded, size: 16),
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (dialog) => Dialog(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        title,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleLarge,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Fechar gráfico',
+                                      onPressed: () => Navigator.pop(dialog),
+                                      icon: const Icon(Icons.close),
+                                    ),
+                                  ],
+                                ),
+                                if (subtitle != null)
+                                  Text(
+                                    subtitle!,
+                                    style: TextStyle(
+                                      color: context.palette.muted,
+                                    ),
+                                  ),
+                                const SizedBox(height: 24),
+                                child,
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ],
+                      ),
+                    ),
                   ),
                 ),
-                ?trailing,
-              ],
-            ),
-            const SizedBox(height: 18),
-            child,
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
       ),
     );
   }
@@ -317,16 +429,19 @@ class TwoColumnLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width < 980) {
-      return Column(children: [left, const SizedBox(height: 12), right]);
-    }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(flex: leftFlex, child: left),
-        const SizedBox(width: 12),
-        Expanded(flex: rightFlex, child: right),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 850) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [left, const SizedBox(height: 16), right],
+          );
+        }
+        return EqualHeightGrid(
+          weights: [leftFlex, rightFlex],
+          children: [left, right],
+        );
+      },
     );
   }
 }
@@ -434,12 +549,7 @@ class AsyncContent<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return value.when(
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      loading: () => const SemobLoadingSkeleton(),
       error: (error, stack) => Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -462,17 +572,8 @@ class AsyncContent<T> extends StatelessWidget {
           ),
         ),
       ),
-      data: (data) => data.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Text(
-                  emptyMessage,
-                  style: TextStyle(color: context.palette.muted),
-                ),
-              ),
-            )
-          : builder(data),
+      data: (data) =>
+          data.isEmpty ? SemobEmptyState(message: emptyMessage) : builder(data),
     );
   }
 }

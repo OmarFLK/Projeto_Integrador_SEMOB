@@ -45,7 +45,12 @@ class TestAuthRepository implements AuthRepository {
 }
 
 class TestHttpAdapter implements HttpClientAdapter {
-  final preferences = <String, dynamic>{'compact': false, 'theme': 'system'};
+  final preferences = <String, dynamic>{
+    'compact': false,
+    'theme': 'system',
+    'sidebarPinned': false,
+    'reduceMotion': false,
+  };
   final profile = <String, dynamic>{
     'id': 'test-user',
     'email': 'admin@example.org',
@@ -68,6 +73,20 @@ class TestHttpAdapter implements HttpClientAdapter {
   };
   final queries = <String, Map<String, dynamic>>{};
   final requests = <RequestOptions>[];
+  final accessRequests = <Map<String, dynamic>>[
+    {
+      'id': 'test-access-request-123456789',
+      'declared_name': 'Pessoa de teste',
+      'identifier': 'person@example.org',
+      'account_name': 'Pessoa de teste',
+      'account_email': 'person@example.org',
+      'account_active': 1,
+      'status': 'pending',
+      'created_at': '2026-11-15T21:00:00Z',
+      'expires_at': '2026-11-16T21:00:00Z',
+      'notification_status': 'not-configured',
+    },
+  ];
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -76,6 +95,14 @@ class TestHttpAdapter implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final path = options.uri.path.split('/').last;
+    if (options.method == 'POST' &&
+        options.uri.path.contains('/access-requests/') &&
+        ['approve', 'reject'].contains(path)) {
+      final id = options.uri.path.split('/').reversed.skip(1).first;
+      for (final row in accessRequests.where((r) => r['id'] == id)) {
+        row['status'] = path == 'approve' ? 'approved' : 'rejected';
+      }
+    }
     if (path == 'preferences' && options.method == 'PUT') {
       preferences.addAll(Map<String, dynamic>.from(options.data as Map));
     }
@@ -146,6 +173,22 @@ class TestHttpAdapter implements HttpClientAdapter {
         },
     ];
     final response = switch (path) {
+      'modes' => {
+        'manual': true,
+        'automatic': false,
+        'adminEmail': 'admin@example.org',
+      },
+      'manual' => {
+        'requestId': 'test-recovery-protocol-12345',
+        'message': 'Solicitação registrada',
+      },
+      'access-requests' => {
+        'items': accessRequests
+            .where((r) => r['status'] == options.uri.queryParameters['status'])
+            .toList(),
+        'notificationConfigured': false,
+      },
+      'approve' || 'reject' => {'ok': true},
       'options' => {
         'periods': [
           {'value': '2026-08', 'label': 'Agosto de 2026'},

@@ -25,6 +25,14 @@ class SemobApp extends ConsumerWidget {
         _ => ThemeMode.system,
       },
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          disableAnimations:
+              MediaQuery.disableAnimationsOf(context) ||
+              prefs?['reduceMotion'] == true,
+        ),
+        child: child!,
+      ),
     );
   }
 }

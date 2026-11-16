@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,6 +50,15 @@ class _PassengersContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (activeModuleView(context) == 'overview') ...[
+          SemobHeroPanel(
+            eyebrow: 'Passageiros / Demanda',
+            title: 'Pessoas que movem a cidade.',
+            description:
+                '${Formatters.integer(total)} passageiros registrados no período. Explore a composição e a evolução diária da bilhetagem.',
+          ),
+          const SizedBox(height: 20),
+        ],
         MetricsGrid(
           children: [
             MetricCard(
@@ -81,64 +89,66 @@ class _PassengersContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        SectionCard(
-          title: 'Passageiros por dia',
-          subtitle:
-              'Composição empilhada entre catraca, antecipados e não pagantes',
-          child: _StackedPassengerChart(data: data),
-        ),
+        if (activeModuleView(context) != 'evolution')
+          SectionCard(
+            title: 'Passageiros por dia',
+            subtitle:
+                'Composição empilhada entre catraca, antecipados e não pagantes',
+            child: _StackedPassengerChart(data: data),
+          ),
         const SizedBox(height: 12),
-        TwoColumnLayout(
-          leftFlex: 2,
-          rightFlex: 1,
-          left: SectionCard(
-            title: 'Evolução no período',
-            subtitle: 'Total diário e passageiros pagantes',
-            child: AnalyticsLineChart(
-              labels: data.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Total',
-                  values: data.map((item) => item.total.toDouble()).toList(),
-                  color: context.palette.graphite,
-                ),
-                ChartSeries(
-                  name: 'Pagantes',
-                  values: data.map((item) => item.paying.toDouble()).toList(),
-                  color: context.palette.green,
-                ),
-              ],
+        if (activeModuleView(context) != 'composition')
+          TwoColumnLayout(
+            leftFlex: 2,
+            rightFlex: 1,
+            left: SectionCard(
+              title: 'Evolução no período',
+              subtitle: 'Total diário e passageiros pagantes',
+              child: AnalyticsLineChart(
+                labels: data.map((item) => '${item.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Total',
+                    values: data.map((item) => item.total.toDouble()).toList(),
+                    color: context.palette.graphite,
+                  ),
+                  ChartSeries(
+                    name: 'Pagantes',
+                    values: data.map((item) => item.paying.toDouble()).toList(),
+                    color: context.palette.green,
+                  ),
+                ],
+              ),
+            ),
+            right: SectionCard(
+              title: 'Destaques de demanda',
+              subtitle: 'Leitura do mês analisado',
+              child: Column(
+                children: [
+                  _DemandHighlight(
+                    icon: Icons.trending_up_rounded,
+                    title: 'Maior demanda',
+                    value:
+                        '${peak.day.toString().padLeft(2, '0')} • ${Formatters.integer(peak.total)} passageiros',
+                  ),
+                  const SizedBox(height: 10),
+                  _DemandHighlight(
+                    icon: Icons.percent_rounded,
+                    title: 'Não pagantes',
+                    value:
+                        '${Formatters.percent(total == 0 ? 0 : nonPaying / total * 100)} do total',
+                  ),
+                  const SizedBox(height: 10),
+                  const _DemandHighlight(
+                    icon: Icons.schedule_outlined,
+                    title: 'Horário de maior demanda',
+                    value: 'Não disponível na fonte de passageiros',
+                    muted: true,
+                  ),
+                ],
+              ),
             ),
           ),
-          right: SectionCard(
-            title: 'Destaques de demanda',
-            subtitle: 'Leitura do mês analisado',
-            child: Column(
-              children: [
-                _DemandHighlight(
-                  icon: Icons.trending_up_rounded,
-                  title: 'Maior demanda',
-                  value:
-                      '${peak.day.toString().padLeft(2, '0')} • ${Formatters.integer(peak.total)} passageiros',
-                ),
-                const SizedBox(height: 10),
-                _DemandHighlight(
-                  icon: Icons.percent_rounded,
-                  title: 'Não pagantes',
-                  value:
-                      '${Formatters.percent(total == 0 ? 0 : nonPaying / total * 100)} do total',
-                ),
-                const SizedBox(height: 10),
-                const _DemandHighlight(
-                  icon: Icons.schedule_outlined,
-                  title: 'Horário de maior demanda',
-                  value: 'Não disponível na fonte de passageiros',
-                  muted: true,
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -146,146 +156,26 @@ class _PassengersContent extends StatelessWidget {
 
 class _StackedPassengerChart extends StatelessWidget {
   const _StackedPassengerChart({required this.data});
-
   final List<PassengerDay> data;
-
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 16,
-          children: [
-            _Legend(color: context.palette.green, label: 'Catraca'),
-            _Legend(color: context.palette.blue, label: 'Antecipados'),
-            _Legend(color: context.palette.amber, label: 'Não pagantes'),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 270,
-          child: BarChart(
-            BarChartData(
-              maxY:
-                  data.fold<double>(
-                    1,
-                    (m, r) => r.total > m ? r.total.toDouble() : m,
-                  ) *
-                  1.1,
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                drawVerticalLine: false,
-                horizontalInterval: 13000,
-                getDrawingHorizontalLine: (_) =>
-                    FlLine(color: context.palette.line, strokeWidth: .8),
-              ),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 44,
-                    interval: 13000,
-                    getTitlesWidget: (value, meta) => SideTitleWidget(
-                      meta: meta,
-                      child: Text(
-                        '${(value / 1000).round()} mil',
-                        style: TextStyle(
-                          color: context.palette.muted,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 28,
-                    interval: 5,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.round();
-                      if (index < 0 || index >= data.length) {
-                        return const SizedBox();
-                      }
-                      return SideTitleWidget(
-                        meta: meta,
-                        child: Text(
-                          '${data[index].day}',
-                          style: TextStyle(
-                            color: context.palette.muted,
-                            fontSize: 10,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              barGroups: [
-                for (var i = 0; i < data.length; i++)
-                  BarChartGroupData(
-                    x: i,
-                    barRods: [
-                      BarChartRodData(
-                        toY: data[i].total.toDouble(),
-                        width: 8,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(2),
-                        ),
-                        rodStackItems: [
-                          BarChartRodStackItem(
-                            0,
-                            data[i].turnstile.toDouble(),
-                            AppColors.green,
-                          ),
-                          BarChartRodStackItem(
-                            data[i].turnstile.toDouble(),
-                            data[i].paying.toDouble(),
-                            context.palette.blue,
-                          ),
-                          BarChartRodStackItem(
-                            data[i].paying.toDouble(),
-                            data[i].total.toDouble(),
-                            context.palette.amber,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Legend extends StatelessWidget {
-  const _Legend({required this.color, required this.label});
-  final Color color;
-  final String label;
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 9,
-        height: 9,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(2),
-        ),
+  Widget build(BuildContext context) => AnalyticsStackedBarChart(
+    labels: data.map((d) => '${d.day}').toList(),
+    series: [
+      ChartSeries(
+        name: 'Catraca',
+        values: data.map((d) => d.turnstile.toDouble()).toList(),
+        color: context.palette.green,
       ),
-      const SizedBox(width: 6),
-      Text(label, style: TextStyle(color: context.palette.muted, fontSize: 11)),
+      ChartSeries(
+        name: 'Antecipados',
+        values: data.map((d) => d.advance.toDouble()).toList(),
+        color: context.palette.blue,
+      ),
+      ChartSeries(
+        name: 'Não pagantes',
+        values: data.map((d) => d.nonPaying.toDouble()).toList(),
+        color: context.palette.amber,
+      ),
     ],
   );
 }
@@ -313,7 +203,7 @@ class _DemandHighlight extends StatelessWidget {
         children: [
           Icon(
             icon,
-            color: muted ? context.palette.muted : AppColors.green,
+            color: muted ? context.palette.muted : context.palette.green,
             size: 22,
           ),
           const SizedBox(width: 11),

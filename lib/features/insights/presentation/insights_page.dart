@@ -24,19 +24,45 @@ class InsightsPage extends ConsumerWidget {
         const CoverageNotice(),
         const SizedBox(height: 16),
         insights.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, s) => const Text('Não foi possível carregar os insights.'),
+          loading: () => const SemobLoadingSkeleton(),
+          error: (e, s) => SemobEmptyState(
+            message: 'Não foi possível carregar os insights.',
+            icon: Icons.cloud_off_outlined,
+            action: TextButton(
+              onPressed: () =>
+                  ref.invalidate(remoteProvider('insights?period=$p')),
+              child: const Text('Tentar novamente'),
+            ),
+          ),
           data: (value) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (final item in value as List)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SectionCard(
-                    title: item['title'] as String,
-                    subtitle: item['metric'] as String,
-                    child: Text(item['description'] as String),
+              const SemobHeroPanel(
+                eyebrow: 'Inteligência / Leituras do período',
+                title: 'Encontre sentido nos dados.',
+                description:
+                    'Observações calculadas a partir dos registros selecionados. Considere a cobertura e as fontes antes de comparar resultados.',
+              ),
+              const SizedBox(height: 20),
+              if (value.isEmpty)
+                const SemobEmptyState(
+                  message: 'Não há insights para o período selecionado.',
+                ),
+              if (value.isNotEmpty)
+                LayoutBuilder(
+                  builder: (context, constraints) => EqualHeightGrid(
+                    columns: constraints.maxWidth >= 850 ? 2 : 1,
+                    children: [
+                      for (final item in value as List)
+                        SectionCard(
+                          title: item['title'] as String,
+                          subtitle: item['metric'] as String,
+                          child: Text(item['description'] as String),
+                        ),
+                    ],
                   ),
                 ),
+              const SizedBox(height: 16),
             ],
           ),
         ),

@@ -1,7 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/design_tokens.dart';
+import 'forest_widgets.dart';
+import 'viewport_entrance.dart';
 
 class ChartSeries {
   const ChartSeries({
@@ -9,227 +13,325 @@ class ChartSeries {
     required this.values,
     required this.color,
   });
-
   final String name;
   final List<double> values;
   final Color color;
 }
 
-class AnalyticsLineChart extends StatelessWidget {
+final _chartNumberFormat = NumberFormat.decimalPattern('pt_BR');
+String chartNumber(double value) => _chartNumberFormat.format(value);
+String compactChartNumber(double value) {
+  if (value.abs() >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(1).replaceAll('.', ',')} mi';
+  }
+  if (value.abs() >= 1000) {
+    return '${(value / 1000).toStringAsFixed(value.abs() < 10000 ? 1 : 0).replaceAll('.', ',')} mil';
+  }
+  return chartNumber(value);
+}
+
+FlTitlesData chartTitles(
+  BuildContext context,
+  double maximum,
+  List<String> labels,
+) => FlTitlesData(
+  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+  leftTitles: AxisTitles(
+    sideTitles: SideTitles(
+      showTitles: true,
+      reservedSize: 52,
+      interval: maximum / 4,
+      getTitlesWidget: (v, m) => SideTitleWidget(
+        meta: m,
+        child: Text(
+          compactChartNumber(v),
+          style: TextStyle(color: context.palette.muted, fontSize: 10),
+        ),
+      ),
+    ),
+  ),
+  bottomTitles: AxisTitles(
+    sideTitles: SideTitles(
+      showTitles: true,
+      reservedSize: 30,
+      interval: labels.length > 12 ? 5 : 1,
+      getTitlesWidget: (v, m) {
+        final index = v.round();
+        if (index < 0 || index >= labels.length) return const SizedBox.shrink();
+        return SideTitleWidget(
+          meta: m,
+          child: Text(
+            labels[index],
+            style: TextStyle(color: context.palette.muted, fontSize: 10),
+          ),
+        );
+      },
+    ),
+  ),
+);
+
+List<FlSpot> chartSpots(List<double> values, List<String> labels) {
+  final result = <FlSpot>[];
+  for (var i = 0; i < values.length; i++) {
+    if (i > 0 && i < labels.length) {
+      final current = int.tryParse(labels[i]);
+      final previous = int.tryParse(labels[i - 1]);
+      if (current != null && previous != null && current > previous + 1) {
+        result.add(FlSpot.nullSpot);
+      }
+    }
+    result.add(
+      values[i].isFinite ? FlSpot(i.toDouble(), values[i]) : FlSpot.nullSpot,
+    );
+  }
+  return result;
+}
+
+double chartMaximum(Iterable<ChartSeries> series) {
+  final values = series.expand((s) => s.values).where((v) => v.isFinite);
+  return (values.isEmpty
+          ? 1.0
+          : values
+                .reduce((a, b) => a > b ? a : b)
+                .clamp(1, double.infinity)
+                .toDouble()) *
+      1.15;
+}
+
+double chartMinimum(Iterable<ChartSeries> series) {
+  final values = series.expand((s) => s.values).where((v) => v.isFinite);
+  if (values.isEmpty) return 0;
+  final minimum = values.reduce((a, b) => a < b ? a : b);
+  return minimum < 0 ? minimum * 1.15 : 0;
+}
+
+class AnalyticsLineChart extends StatefulWidget {
   const AnalyticsLineChart({
     super.key,
     required this.series,
     this.labels = const [],
     this.height = 250,
   });
-
   final List<ChartSeries> series;
   final List<String> labels;
   final double height;
+  @override
+  State<AnalyticsLineChart> createState() => _LineState();
+}
 
+class _LineState extends State<AnalyticsLineChart> {
+  final hidden = <String>{};
   @override
   Widget build(BuildContext context) {
-    final allValues = series.expand((item) => item.values);
-    final maximum = allValues.isEmpty
-        ? 1.0
-        : allValues
-                  .reduce((a, b) => a > b ? a : b)
-                  .clamp(1.0, double.infinity) *
-              1.12;
+    final selected = widget.series
+        .where((s) => !hidden.contains(s.name))
+        .toList();
+    final max = chartMaximum(selected);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChartLegend(series: series),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: height,
-          child: LineChart(
-            LineChartData(
-              minY: 0,
-              maxY: maximum,
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                drawVerticalLine: false,
-                horizontalInterval: maximum / 4,
-                getDrawingHorizontalLine: (value) =>
-                    FlLine(color: context.palette.line, strokeWidth: 0.8),
-              ),
-              titlesData: _titles(context, maximum),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => AppColors.graphite,
+        _ChartLegend(
+          series: widget.series,
+          hidden: hidden,
+          onToggle: (name) => setState(() {
+            if (hidden.contains(name)) {
+              hidden.remove(name);
+            } else if (selected.length > 1) {
+              hidden.add(name);
+            }
+          }),
+        ),
+        const SizedBox(height: 18),
+        RepaintBoundary(
+          child: SizedBox(
+            height: widget.height,
+            child: _ChartReveal(
+              series: selected,
+              labels: widget.labels,
+              child: LineChart(
+                duration: DesignTokens.motion(
+                  context,
+                  const Duration(milliseconds: 450),
+                ),
+                curve: DesignTokens.curve,
+                LineChartData(
+                  minY: chartMinimum(selected),
+                  maxY: max,
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(
+                    drawVerticalLine: false,
+                    horizontalInterval: max / 4,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: context.palette.line.withValues(alpha: .55),
+                      strokeWidth: .7,
+                      dashArray: [4, 5],
+                    ),
+                  ),
+                  titlesData: chartTitles(context, max, widget.labels),
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (_) => context.palette.elevated,
+                      tooltipBorder: BorderSide(color: context.palette.line),
+                      tooltipBorderRadius: BorderRadius.circular(12),
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItems: (spots) => [
+                        for (final spot in spots)
+                          LineTooltipItem(
+                            '${spot.x.round() < widget.labels.length ? widget.labels[spot.x.round()] : ''} · ${selected[spot.barIndex].name}\n${chartNumber(spot.y)}',
+                            TextStyle(
+                              color: selected[spot.barIndex].color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  lineBarsData: [
+                    for (final s in selected)
+                      LineChartBarData(
+                        spots: chartSpots(s.values, widget.labels),
+                        color: s.color,
+                        barWidth: 2.6,
+                        isCurved: false,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              s.color.withValues(
+                                alpha: selected.length == 1 ? .27 : .10,
+                              ),
+                              s.color.withValues(alpha: .005),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              lineBarsData: series
-                  .map(
-                    (item) => LineChartBarData(
-                      spots: [
-                        for (var i = 0; i < item.values.length; i++)
-                          FlSpot(i.toDouble(), item.values[i]),
-                      ],
-                      color: item.color,
-                      barWidth: 2.2,
-                      isCurved: true,
-                      curveSmoothness: 0.2,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: series.length == 1,
-                        color: item.color.withValues(alpha: 0.08),
-                      ),
-                    ),
-                  )
-                  .toList(),
             ),
           ),
         ),
       ],
     );
   }
-
-  FlTitlesData _titles(BuildContext context, double maximum) {
-    return FlTitlesData(
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      leftTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 44,
-          interval: maximum / 4,
-          getTitlesWidget: (value, meta) => SideTitleWidget(
-            meta: meta,
-            child: Text(
-              _compact(value),
-              style: TextStyle(color: context.palette.muted, fontSize: 10),
-            ),
-          ),
-        ),
-      ),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 28,
-          interval: labels.length > 10 ? 5 : 1,
-          getTitlesWidget: (value, meta) {
-            final index = value.round();
-            if (index < 0 || index >= labels.length) return const SizedBox();
-            return SideTitleWidget(
-              meta: meta,
-              child: Text(
-                labels[index],
-                style: TextStyle(color: context.palette.muted, fontSize: 10),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
 }
 
-class AnalyticsBarChart extends StatelessWidget {
+class AnalyticsBarChart extends StatefulWidget {
   const AnalyticsBarChart({
     super.key,
     required this.series,
     required this.labels,
     this.height = 250,
   });
-
   final List<ChartSeries> series;
   final List<String> labels;
   final double height;
+  @override
+  State<AnalyticsBarChart> createState() => _BarState();
+}
 
+class _BarState extends State<AnalyticsBarChart> {
+  final hidden = <String>{};
   @override
   Widget build(BuildContext context) {
-    final allValues = series.expand((item) => item.values);
-    final maximum = allValues.isEmpty
-        ? 1.0
-        : allValues
-                  .reduce((a, b) => a > b ? a : b)
-                  .clamp(1.0, double.infinity) *
-              1.15;
+    final selected = widget.series
+        .where((s) => !hidden.contains(s.name))
+        .toList();
+    final max = chartMaximum(selected);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ChartLegend(series: series),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: height,
-          child: BarChart(
-            BarChartData(
-              maxY: maximum,
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                drawVerticalLine: false,
-                horizontalInterval: maximum / 4,
-                getDrawingHorizontalLine: (value) =>
-                    FlLine(color: context.palette.line, strokeWidth: 0.8),
-              ),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
+        _ChartLegend(
+          series: widget.series,
+          hidden: hidden,
+          onToggle: (name) => setState(() {
+            if (hidden.contains(name)) {
+              hidden.remove(name);
+            } else if (selected.length > 1) {
+              hidden.add(name);
+            }
+          }),
+        ),
+        const SizedBox(height: 18),
+        RepaintBoundary(
+          child: SizedBox(
+            height: widget.height,
+            child: _ChartReveal(
+              effect: EntranceEffect.rise,
+              series: selected,
+              labels: widget.labels,
+              child: BarChart(
+                duration: DesignTokens.motion(
+                  context,
+                  const Duration(milliseconds: 450),
                 ),
-                rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 42,
-                    interval: maximum / 4,
-                    getTitlesWidget: (value, meta) => SideTitleWidget(
-                      meta: meta,
-                      child: Text(
-                        _compact(value),
-                        style: TextStyle(
-                          color: context.palette.muted,
-                          fontSize: 10,
-                        ),
-                      ),
+                curve: DesignTokens.curve,
+                BarChartData(
+                  minY: chartMinimum(selected),
+                  maxY: max,
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(
+                    drawVerticalLine: false,
+                    horizontalInterval: max / 4,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: context.palette.line.withValues(alpha: .55),
+                      strokeWidth: .7,
+                      dashArray: [4, 5],
                     ),
                   ),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 28,
-                    interval: labels.length > 12 ? 5 : 1,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.round();
-                      if (index < 0 || index >= labels.length) {
-                        return const SizedBox();
-                      }
-                      return SideTitleWidget(
-                        meta: meta,
-                        child: Text(
-                          labels[index],
-                          style: TextStyle(
-                            color: context.palette.muted,
-                            fontSize: 10,
+                  titlesData: chartTitles(context, max, widget.labels),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => context.palette.elevated,
+                      tooltipBorder: BorderSide(color: context.palette.line),
+                      tooltipBorderRadius: BorderRadius.circular(12),
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItem: (group, index, rod, rodIndex) =>
+                          BarTooltipItem(
+                            '${widget.labels[group.x]} · ${selected[rodIndex].name}\n${chartNumber(rod.toY)}',
+                            TextStyle(
+                              color: context.palette.ink,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                    ),
                   ),
+                  barGroups: [
+                    for (var i = 0; i < widget.labels.length; i++)
+                      BarChartGroupData(
+                        x: i,
+                        barsSpace: 3,
+                        barRods: [
+                          for (final s in selected)
+                            if (i < s.values.length)
+                              BarChartRodData(
+                                toY: s.values[i],
+                                width: selected.length > 1 ? 5 : 9,
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    s.color.withValues(alpha: .5),
+                                    s.color,
+                                  ],
+                                ),
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(5),
+                                ),
+                              ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-              barGroups: [
-                for (var i = 0; i < labels.length; i++)
-                  BarChartGroupData(
-                    x: i,
-                    barsSpace: 2,
-                    barRods: [
-                      for (final item in series)
-                        BarChartRodData(
-                          toY: i < item.values.length ? item.values[i] : 0,
-                          color: item.color,
-                          width: series.length > 1 ? 5 : 10,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(3),
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
             ),
           ),
         ),
@@ -238,7 +340,112 @@ class AnalyticsBarChart extends StatelessWidget {
   }
 }
 
-class DistributionDonut extends StatelessWidget {
+class AnalyticsStackedBarChart extends StatelessWidget {
+  const AnalyticsStackedBarChart({
+    super.key,
+    required this.series,
+    required this.labels,
+    this.height = 270,
+  });
+  final List<ChartSeries> series;
+  final List<String> labels;
+  final double height;
+  @override
+  Widget build(BuildContext context) {
+    final totals = [
+      for (var i = 0; i < labels.length; i++)
+        series.fold<double>(
+          0,
+          (sum, s) => sum + (i < s.values.length ? s.values[i] : 0),
+        ),
+    ];
+    final maximum = chartMaximum([
+      ChartSeries(name: 'Total', values: totals, color: context.palette.green),
+    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ChartLegend(series: series),
+        const SizedBox(height: 18),
+        RepaintBoundary(
+          child: SizedBox(
+            height: height,
+            child: _ChartReveal(
+              effect: EntranceEffect.rise,
+              series: series,
+              labels: labels,
+              child: BarChart(
+                duration: DesignTokens.motion(context, DesignTokens.chart),
+                curve: DesignTokens.curve,
+                BarChartData(
+                  minY: 0,
+                  maxY: maximum,
+                  borderData: FlBorderData(show: false),
+                  titlesData: chartTitles(context, maximum, labels),
+                  gridData: FlGridData(
+                    drawVerticalLine: false,
+                    horizontalInterval: maximum / 4,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: context.palette.line.withValues(alpha: .55),
+                      strokeWidth: .7,
+                      dashArray: [4, 5],
+                    ),
+                  ),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => context.palette.elevated,
+                      tooltipBorderRadius: BorderRadius.circular(12),
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItem: (group, index, rod, rodIndex) =>
+                          BarTooltipItem(
+                            'Dia ${labels[group.x]}\n${[for (final s in series) '${s.name}: ${chartNumber(s.values[group.x])}'].join('\n')}\nTotal: ${chartNumber(rod.toY)}',
+                            TextStyle(
+                              color: context.palette.ink,
+                              fontSize: 11,
+                              height: 1.7,
+                            ),
+                          ),
+                    ),
+                  ),
+                  barGroups: [
+                    for (var i = 0; i < labels.length; i++)
+                      BarChartGroupData(
+                        x: i,
+                        barRods: [
+                          BarChartRodData(
+                            toY: totals[i],
+                            width: 9,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4),
+                            ),
+                            rodStackItems: _stacks(i),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<BarChartRodStackItem> _stacks(int index) {
+    var start = 0.0;
+    final items = <BarChartRodStackItem>[];
+    for (final s in series) {
+      final end = start + (index < s.values.length ? s.values[index] : 0);
+      items.add(BarChartRodStackItem(start, end, s.color));
+      start = end;
+    }
+    return items;
+  }
+}
+
+class DistributionDonut extends StatefulWidget {
   const DistributionDonut({
     super.key,
     required this.primary,
@@ -247,80 +454,116 @@ class DistributionDonut extends StatelessWidget {
     required this.secondaryLabel,
     this.height = 220,
   });
+  final double primary, secondary, height;
+  final String primaryLabel, secondaryLabel;
+  @override
+  State<DistributionDonut> createState() => _DonutState();
+}
 
-  final double primary;
-  final double secondary;
-  final String primaryLabel;
-  final String secondaryLabel;
-  final double height;
-
+class _DonutState extends State<DistributionDonut> {
+  int touched = -1;
   @override
   Widget build(BuildContext context) {
-    final total = primary + secondary;
-    final percentage = total == 0 ? 0 : primary / total * 100;
+    final total = widget.primary + widget.secondary;
+    if (total == 0) {
+      return const SemobEmptyState(
+        message: 'Nenhum passageiro registrado no período.',
+        icon: Icons.donut_large_rounded,
+      );
+    }
+    final values = [widget.primary, widget.secondary];
+    final labels = [widget.primaryLabel, widget.secondaryLabel];
+    final colors = [context.palette.green, context.palette.blue];
+    final index = touched < 0 ? 0 : touched;
+    final percentage = values[index] / total * 100;
     return Column(
       children: [
         SizedBox(
-          height: height,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              PieChart(
-                PieChartData(
-                  centerSpaceRadius: 58,
-                  sectionsSpace: 3,
-                  startDegreeOffset: -90,
-                  sections: [
-                    PieChartSectionData(
-                      value: primary,
-                      color: context.palette.green,
-                      radius: 20,
-                      showTitle: false,
+          height: widget.height,
+          child: ViewportEntrance(
+            lazy: true,
+            effect: EntranceEffect.ring,
+            replayKey: Object.hash(widget.primary, widget.secondary),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  duration: DesignTokens.motion(context, DesignTokens.chart),
+                  curve: DesignTokens.curve,
+                  PieChartData(
+                    centerSpaceRadius: 62,
+                    sectionsSpace: 5,
+                    startDegreeOffset: -90,
+                    pieTouchData: PieTouchData(
+                      touchCallback: (event, response) {
+                        final selected = event.isInterestedForInteractions
+                            ? response?.touchedSection?.touchedSectionIndex ??
+                                  -1
+                            : -1;
+                        if (selected != touched) {
+                          setState(
+                            () => touched = selected < 0 || selected > 1
+                                ? -1
+                                : selected,
+                          );
+                        }
+                      },
                     ),
-                    PieChartSectionData(
-                      value: secondary,
-                      color: context.palette.amber,
-                      radius: 20,
-                      showTitle: false,
-                    ),
-                  ],
+                    sections: [
+                      for (var i = 0; i < 2; i++)
+                        PieChartSectionData(
+                          value: values[i],
+                          color: colors[i],
+                          radius: touched == i ? 28 : 21,
+                          showTitle: false,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${percentage.toStringAsFixed(1).replaceAll('.', ',')}%',
-                    style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w800,
-                      color: context.palette.ink,
-                    ),
+                IgnorePointer(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SemobAnimatedCounter(
+                        value:
+                            '${percentage.toStringAsFixed(1).replaceAll('.', ',')}%',
+                        style: TextStyle(
+                          fontSize: 26,
+                          letterSpacing: -1,
+                          fontWeight: FontWeight.w700,
+                          color: context.palette.ink,
+                        ),
+                      ),
+                      Text(
+                        labels[index],
+                        style: TextStyle(
+                          color: context.palette.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        chartNumber(values[index]),
+                        style: TextStyle(
+                          color: context.palette.muted,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    primaryLabel,
-                    style: TextStyle(
-                      color: context.palette.muted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
         _ChartLegend(
           series: [
-            ChartSeries(
-              name: primaryLabel,
-              values: const [],
-              color: context.palette.green,
-            ),
-            ChartSeries(
-              name: secondaryLabel,
-              values: const [],
-              color: context.palette.amber,
-            ),
+            for (var i = 0; i < 2; i++)
+              ChartSeries(
+                name: labels[i],
+                values: [values[i]],
+                color: colors[i],
+              ),
           ],
         ),
       ],
@@ -329,43 +572,172 @@ class DistributionDonut extends StatelessWidget {
 }
 
 class _ChartLegend extends StatelessWidget {
-  const _ChartLegend({required this.series});
-
+  const _ChartLegend({
+    required this.series,
+    this.hidden = const {},
+    this.onToggle,
+  });
   final List<ChartSeries> series;
-
+  final Set<String> hidden;
+  final ValueChanged<String>? onToggle;
   @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 16,
-      runSpacing: 6,
-      children: series
-          .map(
-            (item) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: item.color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 6,
+    children: [
+      for (final s in series)
+        Semantics(
+          toggled: !hidden.contains(s.name),
+          child: Tooltip(
+            message: onToggle == null ? s.name : 'Mostrar ou ocultar ${s.name}',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: onToggle == null ? null : () => onToggle!(s.name),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: hidden.contains(s.name)
+                            ? context.palette.line
+                            : s.color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      s.name,
+                      style: TextStyle(
+                        color: context.palette.muted,
+                        fontSize: 11,
+                        decoration: hidden.contains(s.name)
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  item.name,
-                  style: TextStyle(color: context.palette.muted, fontSize: 11),
-                ),
-              ],
+              ),
             ),
-          )
-          .toList(),
-    );
-  }
+          ),
+        ),
+    ],
+  );
 }
 
-String _compact(double value) {
-  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)} mi';
-  if (value >= 1000) return '${(value / 1000).toStringAsFixed(0)} mil';
-  return value.toStringAsFixed(0);
+class _ChartReveal extends StatelessWidget {
+  const _ChartReveal({
+    required this.child,
+    required this.series,
+    required this.labels,
+    this.effect = EntranceEffect.draw,
+  });
+  final Widget child;
+  final List<ChartSeries> series;
+  final List<String> labels;
+  final EntranceEffect effect;
+  @override
+  Widget build(BuildContext context) => _KeyboardChart(
+    series: series,
+    labels: labels,
+    child: ViewportEntrance(
+      lazy: true,
+      effect: effect,
+      replayKey: Object.hash(
+        Object.hashAll(labels),
+        Object.hashAll([
+          for (final s in series) Object.hash(s.name, Object.hashAll(s.values)),
+        ]),
+      ),
+      child: child,
+    ),
+  );
+}
+
+class _KeyboardChart extends StatefulWidget {
+  const _KeyboardChart({
+    required this.child,
+    required this.series,
+    required this.labels,
+  });
+  final Widget child;
+  final List<ChartSeries> series;
+  final List<String> labels;
+  @override
+  State<_KeyboardChart> createState() => _KeyboardChartState();
+}
+
+class _KeyboardChartState extends State<_KeyboardChart> {
+  bool focused = false;
+  int index = 0;
+  @override
+  Widget build(BuildContext context) {
+    if (widget.labels.isEmpty) return widget.child;
+    final current = index.clamp(0, widget.labels.length - 1);
+    final description =
+        '${widget.labels[current]} · ${[for (final s in widget.series)
+          if (current < s.values.length) '${s.name}: ${chartNumber(s.values[current])}'].join(' · ')}';
+    return Focus(
+      key: const Key('keyboard_chart'),
+      onFocusChange: (v) => setState(() => focused = v),
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          node.unfocus();
+          return KeyEventResult.handled;
+        }
+        final direction = event.logicalKey == LogicalKeyboardKey.arrowRight
+            ? 1
+            : event.logicalKey == LogicalKeyboardKey.arrowLeft
+            ? -1
+            : 0;
+        if (direction == 0) return KeyEventResult.ignored;
+        setState(
+          () =>
+              index = (current + direction).clamp(0, widget.labels.length - 1),
+        );
+        return KeyEventResult.handled;
+      },
+      child: Semantics(
+        key: const Key('chart_semantics'),
+        label: 'Gráfico interativo. Use as setas para explorar os registros.',
+        value: focused ? description : '${widget.labels.length} registros',
+        liveRegion: focused,
+        child: Stack(
+          children: [
+            widget.child,
+            if (focused)
+              Positioned(
+                left: 54,
+                right: 4,
+                top: 4,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: context.palette.elevated,
+                      border: Border.all(color: context.palette.green),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      description,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.palette.ink,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

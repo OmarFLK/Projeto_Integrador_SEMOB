@@ -418,6 +418,10 @@ class AuthStore {
         id,
       ]);
       await db.execute('DELETE FROM recovery WHERE user_id=?', [id]);
+      await db.execute(
+        "UPDATE manual_recovery_requests SET status='cancelled',proposed_hash=NULL,processed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending'",
+        [id],
+      );
       await revokeOtherSessions(id, token);
       await log(id, 'profile.password_change', {});
     });
@@ -549,6 +553,10 @@ class AuthStore {
         user,
       ]);
       await db.execute('DELETE FROM sessions WHERE user_id=?', [user]);
+      await db.execute(
+        "UPDATE manual_recovery_requests SET status='cancelled',proposed_hash=NULL,processed_at=CURRENT_TIMESTAMP WHERE user_id=? AND status='pending'",
+        [user],
+      );
       await log(user as String, 'auth.password_reset', {});
     });
   }

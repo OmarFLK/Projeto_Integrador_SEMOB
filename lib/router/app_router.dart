@@ -22,6 +22,7 @@ import '../features/settings/presentation/settings_page.dart';
 import '../features/trips/presentation/trips_page.dart';
 import '../features/users/presentation/profile_page.dart';
 import '../features/users/presentation/users_page.dart';
+import '../features/users/presentation/access_requests_page.dart';
 import '../shared/shell/app_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -46,6 +47,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (authenticated && atLogin) return '/dashboard';
       final permission = switch (state.uri.path) {
         '/users' => 'users',
+        '/access-requests' => 'users',
         '/financial' => 'financial',
         '/reports' => 'export',
         '/assistant' => 'assistant',
@@ -104,6 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/reports', builder: (_, _) => const ReportsPage()),
           GoRoute(path: '/users', builder: (_, _) => const UsersPage()),
+          GoRoute(
+            path: '/access-requests',
+            builder: (_, _) => const AccessRequestsPage(),
+          ),
           GoRoute(path: '/profile', builder: (_, _) => const ProfilePage()),
           GoRoute(
             path: '/settings',

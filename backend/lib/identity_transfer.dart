@@ -14,21 +14,24 @@ Future<Document> exportIdentity(
       'SELECT ${entry.value.join(',')} FROM ${entry.key} ORDER BY ${entry.value.first}',
     );
   }
-  return {'format': 'semob-identity-v2', 'tables': tables};
+  return {'format': 'semob-identity-v3', 'tables': tables};
 }, snapshot: true);
 
 Future<Document> importIdentity(AuthStore auth, Document snapshot) async {
   if (![
         'semob-identity-v1',
         'semob-identity-v2',
+        'semob-identity-v3',
       ].contains(snapshot['format']) ||
       snapshot['tables'] is! Map) {
     throw FormatException('Formato de identidade inválido.');
   }
   final tables = Map<String, dynamic>.from(snapshot['tables'] as Map);
-  final columns = snapshot['format'] == 'semob-identity-v1'
-      ? legacyIdentityColumns
-      : identityColumns;
+  final columns = switch (snapshot['format']) {
+    'semob-identity-v1' => legacyIdentityColumns,
+    'semob-identity-v2' => identityV2Columns,
+    _ => identityColumns,
+  };
   final canonical = <String, dynamic>{};
   for (final entry in columns.entries) {
     final rows = tables[entry.key];
@@ -116,7 +119,12 @@ Future<Document> importIdentity(AuthStore auth, Document snapshot) async {
 
 Object? _normalize(String column, Object? value) {
   if (value != null &&
-      ['created_at', 'last_access', 'expires_at'].contains(column)) {
+      [
+        'created_at',
+        'last_access',
+        'expires_at',
+        'processed_at',
+      ].contains(column)) {
     return DateTime.parse(value.toString()).toUtc().toIso8601String();
   }
   return value;

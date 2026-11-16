@@ -43,7 +43,24 @@ class _ReportsState extends ConsumerState<ReportsPage> {
           action: GlobalFilterBar(),
         ),
         const SizedBox(height: 16),
-        if (user?.can('import') == true)
+        if (activeModuleView(context) == 'overview') ...[
+          const SemobHeroPanel(
+            eyebrow: 'Dados / Rastreabilidade',
+            title: 'Informação que vira decisão.',
+            description:
+                'Consulte os relatórios por domínio, exporte os recortes e acompanhe a origem dos dados. Novos lotes são validados antes da publicação.',
+          ),
+          const SizedBox(height: 20),
+        ],
+        if (activeModuleView(context) == 'import' &&
+            user?.can('import') != true)
+          const SemobEmptyState(
+            message:
+                'Seu perfil permite exportar relatórios. A importação exige autorização administrativa.',
+            icon: Icons.lock_outline,
+          ),
+        if (user?.can('import') == true &&
+            activeModuleView(context) == 'import')
           SectionCard(
             title: 'Importar novos dados',
             subtitle:
@@ -141,7 +158,8 @@ class _ReportsState extends ConsumerState<ReportsPage> {
         ),
         const SizedBox(height: 16),
         for (final report in reports)
-          if (report.$1 != 'financial' || user?.can('financial') == true)
+          if (activeModuleView(context) == 'overview' &&
+              (report.$1 != 'financial' || user?.can('financial') == true))
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: SectionCard(

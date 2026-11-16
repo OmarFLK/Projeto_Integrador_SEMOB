@@ -267,6 +267,18 @@ class _SettingsState extends ConsumerState<SettingsPage> {
           'large': 'Grande',
         }, p),
       ),
+      PreferenceRow(
+        title: 'Reduzir movimento',
+        subtitle:
+            'Simplifica animações e transições. A preferência do dispositivo também é respeitada.',
+        control: toggle('reduceMotion', p),
+      ),
+      PreferenceRow(
+        title: 'Fixar navegação',
+        subtitle:
+            'Mantém os nomes e grupos do menu lateral abertos no computador.',
+        control: toggle('sidebarPinned', p),
+      ),
     ]),
   );
   Widget chat(Map<String, dynamic> p) => SectionCard(

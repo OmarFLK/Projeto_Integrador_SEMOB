@@ -63,9 +63,28 @@ class _OperationContent extends StatelessWidget {
     );
     final divergent = days.where((item) => item.tripDifference > 0).toList()
       ..sort((a, b) => b.tripDifference.compareTo(a.tripDifference));
+    final view = activeModuleView(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (view == 'overview') ...[
+          SemobHeroPanel(
+            eyebrow: 'Operação / Desempenho',
+            title: 'O ritmo do transporte.',
+            description:
+                '${Formatters.integer(completed)} viagens realizadas em ${days.length} dias com registros. Acompanhe o cumprimento e os pontos que exigem atenção.',
+            trailing: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ivory,
+                side: const BorderSide(color: AppColors.sage),
+              ),
+              onPressed: () => context.go('/trips'),
+              icon: const Icon(Icons.north_east, size: 16),
+              label: const Text('Explorar viagens'),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
         MetricsGrid(
           children: [
             MetricCard(
@@ -117,135 +136,139 @@ class _OperationContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        TwoColumnLayout(
-          left: SectionCard(
-            title: 'Programadas x realizadas por dia',
-            subtitle: 'Dias com diferença são destacados na lista de atenção',
-            child: AnalyticsBarChart(
-              labels: days.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Programadas',
-                  values: days
-                      .map((item) => item.scheduledTrips.toDouble())
-                      .toList(),
-                  color: context.palette.graphite,
-                ),
-                ChartSeries(
-                  name: 'Realizadas',
-                  values: days
-                      .map((item) => item.completedTrips.toDouble())
-                      .toList(),
-                  color: context.palette.green,
-                ),
-              ],
+        if (view != 'kilometres')
+          TwoColumnLayout(
+            left: SectionCard(
+              title: 'Programadas x realizadas por dia',
+              subtitle: 'Dias com diferença são destacados na lista de atenção',
+              child: AnalyticsBarChart(
+                labels: days.map((item) => '${item.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Programadas',
+                    values: days
+                        .map((item) => item.scheduledTrips.toDouble())
+                        .toList(),
+                    color: context.palette.graphite,
+                  ),
+                  ChartSeries(
+                    name: 'Realizadas',
+                    values: days
+                        .map((item) => item.completedTrips.toDouble())
+                        .toList(),
+                    color: context.palette.green,
+                  ),
+                ],
+              ),
+            ),
+            right: SectionCard(
+              title: 'Veículos utilizados por dia',
+              subtitle: 'Quantidade de prefixos registrados na operação',
+              child: AnalyticsLineChart(
+                labels: days.map((item) => '${item.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Veículos',
+                    values: days
+                        .map((item) => item.vehicles.toDouble())
+                        .toList(),
+                    color: context.palette.blue,
+                  ),
+                  ChartSeries(
+                    name: 'Máx. por faixa',
+                    values: days
+                        .map((item) => item.maxVehiclesInRange.toDouble())
+                        .toList(),
+                    color: context.palette.green,
+                  ),
+                ],
+              ),
             ),
           ),
-          right: SectionCard(
-            title: 'Veículos utilizados por dia',
-            subtitle: 'Quantidade de prefixos registrados na operação',
-            child: AnalyticsLineChart(
-              labels: days.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Veículos',
-                  values: days.map((item) => item.vehicles.toDouble()).toList(),
-                  color: context.palette.blue,
-                ),
-                ChartSeries(
-                  name: 'Máx. por faixa',
-                  values: days
-                      .map((item) => item.maxVehiclesInRange.toDouble())
-                      .toList(),
-                  color: context.palette.green,
-                ),
-              ],
-            ),
-          ),
-        ),
         const SizedBox(height: 12),
-        TwoColumnLayout(
-          leftFlex: 2,
-          rightFlex: 1,
-          left: SectionCard(
-            title: 'Quilometragem por dia',
-            subtitle: 'Produtiva, improdutiva e total',
-            child: AnalyticsLineChart(
-              labels: days.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Produtiva',
-                  values: days.map((item) => item.productiveKm).toList(),
-                  color: context.palette.green,
-                ),
-                ChartSeries(
-                  name: 'Improdutiva',
-                  values: days.map((item) => item.unproductiveKm).toList(),
-                  color: context.palette.amber,
-                ),
-                ChartSeries(
-                  name: 'Total',
-                  values: days.map((item) => item.totalKm).toList(),
-                  color: context.palette.graphite,
-                ),
-              ],
+        if (view != 'trips')
+          TwoColumnLayout(
+            leftFlex: 2,
+            rightFlex: 1,
+            left: SectionCard(
+              title: 'Quilometragem por dia',
+              subtitle: 'Produtiva, improdutiva e total',
+              child: AnalyticsLineChart(
+                labels: days.map((item) => '${item.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Produtiva',
+                    values: days.map((item) => item.productiveKm).toList(),
+                    color: context.palette.green,
+                  ),
+                  ChartSeries(
+                    name: 'Improdutiva',
+                    values: days.map((item) => item.unproductiveKm).toList(),
+                    color: context.palette.amber,
+                  ),
+                  ChartSeries(
+                    name: 'Total',
+                    values: days.map((item) => item.totalKm).toList(),
+                    color: context.palette.graphite,
+                  ),
+                ],
+              ),
             ),
-          ),
-          right: SectionCard(
-            title: 'Dias que exigem atenção',
-            subtitle: '${divergent.length} dias com diferença de viagens',
-            trailing: IconButton(
-              tooltip: 'Abrir anomalias',
-              onPressed: () => context.go('/anomalies'),
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-            ),
-            child: Column(
-              children: divergent
-                  .take(7)
-                  .map(
-                    (day) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(11),
-                      decoration: BoxDecoration(
-                        color: day.tripDifference >= 7
-                            ? context.palette.redSoft
-                            : context.palette.amberSoft,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            color: day.tripDifference >= 7
-                                ? context.palette.red
-                                : context.palette.amber,
-                            size: 19,
-                          ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: Text(
-                              '${day.day.toString().padLeft(2, '0')} • ${day.weekday}',
+            right: SectionCard(
+              title: 'Dias que exigem atenção',
+              subtitle: '${divergent.length} dias com diferença de viagens',
+              trailing: IconButton(
+                tooltip: 'Abrir anomalias',
+                onPressed: () => context.go('/anomalies'),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              ),
+              child: Column(
+                children: divergent
+                    .take(7)
+                    .map(
+                      (day) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          color: day.tripDifference >= 7
+                              ? context.palette.redSoft
+                              : context.palette.amberSoft,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: day.tripDifference >= 7
+                                  ? context.palette.red
+                                  : context.palette.amber,
+                              size: 19,
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                '${day.day.toString().padLeft(2, '0')} • ${day.weekday}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${day.tripDifference} viagens',
                               style: const TextStyle(
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 12,
                               ),
                             ),
-                          ),
-                          Text(
-                            '${day.tripDifference} viagens',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
+                    )
+                    .toList(),
+              ),
             ),
           ),
-        ),
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerRight,

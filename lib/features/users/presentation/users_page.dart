@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../models/user.dart';
 import '../../../services/api_client.dart';
 import '../../../shared/providers/app_providers.dart';
@@ -29,6 +30,18 @@ class _UsersState extends ConsumerState<UsersPage> {
           ),
         ),
         const SizedBox(height: 16),
+        SemobHeroPanel(
+          eyebrow: 'Administração / Pessoas',
+          title: 'As pessoas por trás da operação.',
+          description:
+              'Gerencie contas e permissões. Pedidos de recuperação aguardam conferência na central de solicitações.',
+          trailing: FilledButton.icon(
+            onPressed: () => context.go('/access-requests'),
+            icon: const Icon(Icons.mark_email_unread_outlined, size: 17),
+            label: const Text('Revisar solicitações'),
+          ),
+        ),
+        const SizedBox(height: 20),
         TextField(
           decoration: const InputDecoration(
             labelText: 'Buscar nome, e-mail ou matrícula',
@@ -49,7 +62,7 @@ class _UsersState extends ConsumerState<UsersPage> {
         ),
         const SizedBox(height: 16),
         users.when(
-          loading: () => const LinearProgressIndicator(),
+          loading: () => const SemobLoadingSkeleton(),
           error: (e, s) => Column(
             children: [
               Text(apiError(e)),
@@ -73,10 +86,12 @@ class _UsersState extends ConsumerState<UsersPage> {
                 )
                 .toList();
             return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (items.isEmpty) const Text('Nenhum usuário encontrado.'),
                 for (final u in items)
                   Card(
+                    margin: const EdgeInsets.only(bottom: 16),
                     child: ListTile(
                       title: Text(u['name'] as String),
                       subtitle: Text(
@@ -122,6 +137,7 @@ class _UsersState extends ConsumerState<UsersPage> {
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                spacing: 12,
                 children: [
                   TextField(
                     controller: name,

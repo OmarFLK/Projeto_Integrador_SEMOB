@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/responsive/breakpoints.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../models/transport_models.dart';
@@ -24,6 +25,66 @@ class _TripsState extends ConsumerState<TripsPage> {
   bool ascending = true;
   Timer? debounce;
   static const limit = 50;
+  void showTrip(TripRecord trip) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheet) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Detalhes do registro',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            StatusBadge(
+              label: trip.status.label,
+              kind: tripStatusKind(trip.status),
+            ),
+            const SizedBox(height: 16),
+            for (final row in [
+              ('Data', trip.date),
+              ('Atividade', trip.activity),
+              ('Linha', trip.line),
+              ('Veículo', trip.vehicle),
+              ('Sentido', trip.direction),
+              ('Faixa horária', trip.timeRange),
+              ('Horário registrado', '${trip.start} → ${trip.end}'),
+              ('Km total', Formatters.decimal(trip.totalKm)),
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text('${row.$1}: ${row.$2}'),
+              ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(sheet);
+                    context.go('/lines/${Uri.encodeComponent(trip.line)}');
+                  },
+                  child: const Text('Consultar linha'),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.pop(sheet);
+                    context.go('/fleet/${Uri.encodeComponent(trip.vehicle)}');
+                  },
+                  child: const Text('Consultar veículo'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
   @override
   void dispose() {
     debounce?.cancel();
@@ -127,7 +188,7 @@ class _TripsState extends ConsumerState<TripsPage> {
         ),
         const SizedBox(height: 16),
         page.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const SemobLoadingSkeleton(height: 300),
           error: (e, s) => Column(
             children: [
               Text(apiError(e)),
@@ -151,6 +212,7 @@ class _TripsState extends ConsumerState<TripsPage> {
                 ...result.items.map(
                   (r) => Card(
                     child: ListTile(
+                      onTap: () => showTrip(r),
                       title: Text('Linha ${r.line} • ${r.vehicle}'),
                       subtitle: Text(
                         '${r.date} • ${r.start} → ${r.end}\n${r.activity} • ${r.direction} • ${r.timeRange}\n${Formatters.decimal(r.totalKm)} km • ${r.status.label}',
@@ -177,6 +239,7 @@ class _TripsState extends ConsumerState<TripsPage> {
                     rows: result.items
                         .map(
                           (r) => DataRow(
+                            onSelectChanged: (_) => showTrip(r),
                             cells: [
                               for (final value in [
                                 r.date,

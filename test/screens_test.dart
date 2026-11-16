@@ -46,6 +46,7 @@ void main() {
         '/assistant',
         '/reports',
         '/users',
+        '/access-requests',
         '/profile',
         '/settings',
         '/help',
@@ -101,7 +102,12 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(MaterialApp)),
     );
-    for (final path in ['/users', '/financial', '/assistant']) {
+    for (final path in [
+      '/users',
+      '/access-requests',
+      '/financial',
+      '/assistant',
+    ]) {
       container.read(routerProvider).go(path);
       await tester.pumpAndSettle();
       expect(find.text('Visão Geral'), findsWidgets);

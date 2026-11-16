@@ -28,6 +28,24 @@ const identityMigrations = <int, List<String>>{
     'ALTER TABLE users ADD COLUMN avatar_data TEXT CHECK(avatar_data IS NULL OR octet_length(avatar_data)<=2097152)',
     'ALTER TABLE users ADD COLUMN avatar_version TEXT',
   ],
+  3: [
+    '''CREATE TABLE manual_recovery_requests(
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id),
+      declared_name TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      proposed_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected','expired','cancelled')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMPTZ NOT NULL,
+      processed_at TIMESTAMPTZ,
+      processed_by TEXT,
+      notification_status TEXT NOT NULL DEFAULT 'not-configured'
+        CHECK(notification_status IN ('not-configured','sent','failed'))
+    )''',
+    'CREATE INDEX manual_recovery_status ON manual_recovery_requests(status,created_at)',
+    'CREATE INDEX manual_recovery_user ON manual_recovery_requests(user_id)',
+  ],
 };
 
 /// Whitelist shared by SQLite migration and logical backup/restore.
@@ -61,7 +79,24 @@ const legacyIdentityColumns = <String, List<String>>{
   'audit': ['id', 'user_id', 'action', 'created_at', 'details'],
 };
 
-final identityColumns = <String, List<String>>{
+final identityV2Columns = <String, List<String>>{
   ...legacyIdentityColumns,
   'users': [...legacyUserColumns, 'avatar_data', 'avatar_version'],
+};
+
+final identityColumns = <String, List<String>>{
+  ...identityV2Columns,
+  'manual_recovery_requests': [
+    'id',
+    'user_id',
+    'declared_name',
+    'identifier',
+    'proposed_hash',
+    'status',
+    'created_at',
+    'expires_at',
+    'processed_at',
+    'processed_by',
+    'notification_status',
+  ],
 };

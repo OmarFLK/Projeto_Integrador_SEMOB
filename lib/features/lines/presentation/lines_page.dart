@@ -19,6 +19,7 @@ class LinesPage extends ConsumerStatefulWidget {
 
 class _LinesPageState extends ConsumerState<LinesPage> {
   String _search = '';
+  bool rankByTrips = false;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +33,29 @@ class _LinesPageState extends ConsumerState<LinesPage> {
         ),
         const SizedBox(height: 16),
         const DataSourceNote(),
+        const SizedBox(height: 16),
+        const SemobHeroPanel(
+          eyebrow: 'Rede municipal / Linhas',
+          title: 'Cada linha, uma conexão.',
+          description:
+              'Explore viagens, quilometragem e participação no volume registrado. Abra uma linha para consultar seu histórico e suas ocorrências.',
+        ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('Por identificação'),
+              selected: !rankByTrips,
+              onSelected: (_) => setState(() => rankByTrips = false),
+            ),
+            ChoiceChip(
+              label: const Text('Mais viagens'),
+              selected: rankByTrips,
+              onSelected: (_) => setState(() => rankByTrips = true),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         SectionCard(
           title: 'Linhas em operação',
@@ -53,6 +77,9 @@ class _LinesPageState extends ConsumerState<LinesPage> {
               final filtered = data
                   .where((line) => line.code.contains(_search.trim()))
                   .toList();
+              if (rankByTrips) {
+                filtered.sort((a, b) => b.trips.compareTo(a.trips));
+              }
               if (filtered.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(36),
@@ -74,27 +101,15 @@ class _LinesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (AppBreakpoints.isMobile(context)) {
-      return Column(
-        children: lines.map((line) => _LineCard(line: line)).toList(),
-      );
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth > 1050 ? 3 : 2;
-        const gap = 12.0;
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: lines
-              .map(
-                (line) => SizedBox(
-                  width: width,
-                  child: _LineCard(line: line),
-                ),
-              )
-              .toList(),
+        return EqualHeightGrid(
+          columns: constraints.maxWidth < 600
+              ? 1
+              : constraints.maxWidth > 1050
+              ? 3
+              : 2,
+          children: [for (final line in lines) _LineCard(line: line)],
         );
       },
     );
@@ -111,11 +126,11 @@ class _LineCard extends StatelessWidget {
       onTap: () => context.go('/lines/${line.code}'),
       borderRadius: BorderRadius.circular(9),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border.all(color: context.palette.line),
-          borderRadius: BorderRadius.circular(9),
+          color: context.palette.elevated,
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,13 +142,13 @@ class _LineCard extends StatelessWidget {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.green,
+                    color: context.palette.greenLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     line.code,
-                    style: const TextStyle(
-                      color: AppColors.white,
+                    style: TextStyle(
+                      color: context.palette.green,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

@@ -1,48 +1,68 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'design_tokens.dart';
 
 abstract final class AppTheme {
   static ThemeData get light => build(Brightness.light);
   static ThemeData get dark => build(Brightness.dark);
-
   static ThemeData build(Brightness brightness, {bool compact = false}) {
     final dark = brightness == Brightness.dark;
-    final surface = dark ? const Color(0xFF15231C) : AppColors.white;
-    final canvas = dark ? const Color(0xFF0D1712) : AppColors.canvas;
-    final ink = dark ? const Color(0xFFEDF5F0) : AppColors.ink;
-    final muted = dark ? const Color(0xFFA6B9AD) : AppColors.muted;
-    final line = dark ? const Color(0xFF2D4035) : AppColors.line;
-    final primary = dark ? const Color(0xFF7ED9A5) : AppColors.green;
+    final surface = dark ? const Color(0xFF192F23) : const Color(0xFFF9FAEF);
+    final ink = dark ? const Color(0xFFF0F3E3) : AppColors.ink;
+    final muted = dark ? const Color(0xFFB1BDA6) : AppColors.muted;
+    final line = dark ? const Color(0xFF354C37) : AppColors.line;
+    final primary = dark ? AppColors.lime : AppColors.green;
     final scheme =
         ColorScheme.fromSeed(
-          seedColor: AppColors.green,
+          seedColor: AppColors.moss,
           brightness: brightness,
         ).copyWith(
           primary: primary,
-          onPrimary: dark ? const Color(0xFF082F1B) : Colors.white,
+          onPrimary: dark ? AppColors.forestBlack : Colors.white,
+          secondary: dark ? AppColors.sage : AppColors.moss,
           surface: surface,
           onSurface: ink,
           onSurfaceVariant: muted,
           outline: line,
-          outlineVariant: line,
-          error: dark ? const Color(0xFFFFA89D) : AppColors.red,
+          outlineVariant: line.withValues(alpha: .65),
+          error: dark ? const Color(0xFFFFA294) : AppColors.red,
           primaryContainer: dark
-              ? const Color(0xFF213D2D)
+              ? const Color(0xFF31482C)
               : AppColors.greenLight,
-          onPrimaryContainer: dark
-              ? const Color(0xFFB8F4D1)
-              : AppColors.greenDark,
+          onPrimaryContainer: dark ? AppColors.lime : AppColors.greenDark,
         );
     final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       borderSide: BorderSide(color: line),
+    );
+    final text = Typography.material2021().black.apply(
+      bodyColor: ink,
+      displayColor: ink,
+      fontFamily: 'NotoSans',
     );
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: canvas,
+      scaffoldBackgroundColor: dark ? AppColors.forestBlack : AppColors.canvas,
       fontFamily: 'NotoSans',
+      textTheme: text.copyWith(
+        headlineLarge: text.headlineLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -1.3,
+        ),
+        headlineMedium: text.headlineMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.9,
+        ),
+        headlineSmall: text.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.6,
+          fontFeatures: [const FontFeature.tabularFigures()],
+        ),
+        bodyMedium: text.bodyMedium?.copyWith(height: 1.5),
+        labelLarge: text.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
       visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
       dividerColor: line,
       appBarTheme: AppBarTheme(
@@ -51,20 +71,44 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
-      popupMenuTheme: PopupMenuThemeData(color: surface),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 350),
+        decoration: BoxDecoration(
+          color: AppColors.forest,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        textStyle: const TextStyle(color: AppColors.ivory, fontSize: 12),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(26),
+          side: BorderSide(color: line),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        showDragHandle: true,
+      ),
       cardTheme: CardThemeData(
         color: surface,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: line),
+          borderRadius: BorderRadius.circular(DesignTokens.radius),
+          side: BorderSide(color: line.withValues(alpha: .8)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: dark ? const Color(0xFF14291E) : const Color(0xFFF1F4E6),
+        labelStyle: TextStyle(color: muted, fontSize: 13),
+        hintStyle: TextStyle(color: muted, fontSize: 13),
         border: border,
         enabledBorder: border,
         focusedBorder: border.copyWith(
@@ -80,47 +124,60 @@ abstract final class AppTheme {
           backgroundColor: primary,
           foregroundColor: scheme.onPrimary,
           elevation: 0,
-          minimumSize: const Size(0, 46),
+          minimumSize: const Size(0, 48),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 46),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, 46),
           side: BorderSide(color: line),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: primary),
+        style: TextButton.styleFrom(
+          foregroundColor: primary,
+          minimumSize: const Size(44, 44),
+        ),
       ),
       chipTheme: ChipThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         side: BorderSide(color: line),
         backgroundColor: surface,
+        selectedColor: scheme.primaryContainer,
       ),
       dataTableTheme: DataTableThemeData(
-        headingRowColor: WidgetStatePropertyAll(canvas),
+        headingRowColor: WidgetStatePropertyAll(
+          scheme.primaryContainer.withValues(alpha: .3),
+        ),
         headingTextStyle: TextStyle(
           color: muted,
           fontWeight: FontWeight.w600,
-          fontSize: 12,
+          fontSize: 11,
         ),
-        dataTextStyle: TextStyle(color: ink, fontSize: 13),
-        dividerThickness: 0.7,
+        dataTextStyle: TextStyle(
+          color: ink,
+          fontSize: 12,
+          fontFeatures: [const FontFeature.tabularFigures()],
+        ),
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 64,
+        columnSpacing: 24,
+        dividerThickness: .5,
       ),
     );
   }

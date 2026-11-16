@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../services/api_client.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/page_components.dart';
 import '../../../shared/widgets/global_filter_bar.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/responsive/breakpoints.dart';
 
 class AiAssistantPage extends ConsumerStatefulWidget {
   const AiAssistantPage({super.key});
@@ -15,6 +17,7 @@ class AiAssistantPage extends ConsumerStatefulWidget {
 
 class _AssistantState extends ConsumerState<AiAssistantPage> {
   final input = TextEditingController();
+  final scroll = ScrollController();
   final messages =
       <({String question, String answer, List<String> sources, DateTime at})>[];
   bool busy = false;
@@ -22,6 +25,7 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
   @override
   void dispose() {
     input.dispose();
+    scroll.dispose();
     super.dispose();
   }
 
@@ -30,113 +34,202 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
     final status = ref.watch(remoteProvider('assistant/status'));
     final configured = status.value?['configured'] == true;
     final prefs = ref.watch(preferencesProvider).value ?? {};
+    final inset = prefs['compact'] == true
+        ? AppSpacing.sm
+        : AppBreakpoints.isMobile(context)
+        ? AppSpacing.md
+        : AppSpacing.lg;
     final fontSize = switch (prefs['chatTextSize']) {
       'small' => 13.0,
       'large' => 18.0,
       _ => 15.0,
     };
-    String timestamp(DateTime value) => DateFormat(
-      '${prefs['chatDateFormat'] == 'yyyy-MM-dd' ? 'yyyy-MM-dd' : 'dd/MM/yyyy'} · HH:mm',
-    ).format(value);
-    return PageBody(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeader(
-          title: 'Assistente SEMOB',
-          subtitle: 'Conexão com a IA institucional',
-          action: GlobalFilterBar(),
-        ),
-        const SizedBox(height: 16),
-        status.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (e, s) => TextButton(
-            onPressed: () => ref.invalidate(remoteProvider('assistant/status')),
-            child: const Text('Verificar conexão'),
-          ),
-          data: (value) => DataSourceNote(
-            text: configured
-                ? 'A IA recebe a pergunta e indicadores do período selecionado. Confira as fontes antes de usar a resposta.'
-                : 'A conexão com a IA institucional ainda não foi configurada. Nenhuma resposta simulada será apresentada.',
-            provisional: !configured,
-          ),
-        ),
-        const SizedBox(height: 16),
-        for (final message in messages) ...[
-          Align(
-            alignment: Alignment.centerRight,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      message.question,
-                      style: TextStyle(fontSize: fontSize, height: 1.6),
-                    ),
-                    if (prefs['chatShowTimestamps'] == true) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        timestamp(message.at),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: context.palette.muted,
-                        ),
-                      ),
-                    ],
-                  ],
+        Expanded(
+          child: PageBody(
+            controller: scroll,
+            maxWidth: double.infinity,
+            children: [
+              const PageHeader(
+                title: 'Assistente SEMOB',
+                subtitle: 'Um olhar conectado aos dados da operação',
+                action: GlobalFilterBar(),
+              ),
+              const SizedBox(height: 20),
+              if (messages.isEmpty) ...[
+                const SemobHeroPanel(
+                  eyebrow: 'Inteligência / Assistente',
+                  title: 'Pergunte. Explore. Compreenda.',
+                  description:
+                      'Converse com a IA institucional sobre o período selecionado. Use as fontes e a cobertura para interpretar cada resposta.',
+                ),
+                const SizedBox(height: 20),
+              ],
+              status.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (_, _) => SemobEmptyState(
+                  message: 'Não foi possível verificar a integração.',
+                  icon: Icons.cloud_off_outlined,
+                  action: TextButton(
+                    onPressed: () =>
+                        ref.invalidate(remoteProvider('assistant/status')),
+                    child: const Text('Verificar conexão'),
+                  ),
+                ),
+                data: (_) => DataSourceNote(
+                  text: configured
+                      ? 'Sua pergunta será enviada com o contexto permitido nas preferências da conta. Confira as fontes da resposta.'
+                      : 'A conexão com a IA institucional ainda não foi configurada. Procure a administração para habilitar a integração.',
+                  provisional: !configured,
                 ),
               ),
-            ),
+              const SizedBox(height: 20),
+              if (messages.isEmpty && configured)
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final question in [
+                      'Como foi o cumprimento de viagens?',
+                      'Quais dias exigem atenção?',
+                      'Resuma a demanda de passageiros.',
+                    ])
+                      ActionChip(
+                        label: Text(question),
+                        avatar: const Icon(Icons.north_east, size: 15),
+                        onPressed: busy
+                            ? null
+                            : () {
+                                input.text = question;
+                                _ask();
+                              },
+                      ),
+                  ],
+                ),
+              for (final message in messages) ...[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 20, left: 24),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: context.palette.greenLight,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          message.question,
+                          style: TextStyle(fontSize: fontSize, height: 1.6),
+                        ),
+                        if (prefs['chatShowTimestamps'] == true)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              DateFormat(
+                                '${prefs['chatDateFormat'] == 'yyyy-MM-dd' ? 'yyyy-MM-dd' : 'dd/MM/yyyy'} · HH:mm',
+                              ).format(message.at),
+                              style: TextStyle(
+                                color: context.palette.muted,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SectionCard(
+                  title: 'Assistente SEMOB',
+                  subtitle: 'Resposta da integração institucional',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        message.answer,
+                        style: TextStyle(fontSize: fontSize, height: 1.8),
+                      ),
+                      if (message.sources.isNotEmpty)
+                        ExpansionTile(
+                          title: const Text('Fontes e contexto utilizados'),
+                          children: [
+                            for (final source in message.sources)
+                              ListTile(title: Text(source)),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              if (busy) const SemobLoadingSkeleton(height: 170, lines: 2),
+              if (error != null)
+                SemobEmptyState(message: error!, icon: Icons.error_outline),
+            ],
           ),
-          const SizedBox(height: 8),
-          SectionCard(
-            title: 'Resposta',
-            child: Column(
+        ),
+        Container(
+          key: const Key('assistant_composer'),
+          margin: EdgeInsets.fromLTRB(inset, 0, inset, 96),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: context.palette.surface,
+            border: Border.all(color: context.palette.line),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SelectableText(
-                  message.answer,
-                  style: TextStyle(fontSize: fontSize, height: 1.65),
-                ),
-                if (message.sources.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  ExpansionTile(
-                    title: const Text('Fontes e contexto utilizados'),
-                    children: message.sources
-                        .map((s) => ListTile(title: Text(s)))
-                        .toList(),
+                Expanded(
+                  child: TextField(
+                    key: const Key('assistant_input'),
+                    controller: input,
+                    enabled: configured && !busy,
+                    minLines: 1,
+                    maxLines: 3,
+                    maxLength: 4000,
+                    decoration: InputDecoration(
+                      hintText: 'Pergunte sobre os dados de transporte',
+                      counterText: '',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: context.palette.line),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: context.palette.line),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(
+                          color: context.palette.green,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    onSubmitted: (_) => _ask(),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  tooltip: busy ? 'Consultando' : 'Enviar pergunta',
+                  onPressed: configured && !busy ? _ask : null,
+                  icon: Icon(
+                    busy
+                        ? Icons.hourglass_top_rounded
+                        : Icons.arrow_upward_rounded,
+                  ),
+                ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(error!, style: const TextStyle(color: Colors.red)),
-          ),
-        if (busy) const LinearProgressIndicator(),
-        TextField(
-          controller: input,
-          enabled: configured && !busy,
-          minLines: 1,
-          maxLines: 5,
-          maxLength: 4000,
-          decoration: const InputDecoration(
-            labelText: 'Pergunte sobre os dados de transporte',
-            hintText: 'Ex.: qual linha teve mais viagens no período?',
-          ),
-          onSubmitted: (_) => _ask(),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton.icon(
-            onPressed: configured && !busy ? _ask : null,
-            icon: const Icon(Icons.send),
-            label: Text(busy ? 'Consultando...' : 'Enviar'),
           ),
         ),
       ],
@@ -172,6 +265,17 @@ class _AssistantState extends ConsumerState<AiAssistantPage> {
           at: DateTime.now(),
         ));
         input.clear();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && scroll.hasClients) {
+          scroll.animateTo(
+            scroll.position.maxScrollExtent,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+          );
+        }
       });
     } catch (e) {
       if (mounted) setState(() => error = apiError(e));

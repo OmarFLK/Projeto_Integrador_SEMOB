@@ -39,8 +39,15 @@ class VehicleDetailPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+        SemobHeroPanel(
+          eyebrow: 'Frota / Prefixo $prefix',
+          title: 'O percurso em perspectiva.',
+          description:
+              'Histórico de atividades, linhas atendidas e quilometragem do veículo no período $p. Estes registros não indicam posição ou disponibilidade atual.',
+        ),
+        const SizedBox(height: 20),
         vehicles.when(
-          loading: () => const LinearProgressIndicator(),
+          loading: () => const SemobLoadingSkeleton(height: 160, lines: 2),
           error: (e, s) => Text(apiError(e)),
           data: (value) {
             final rows = value as List;

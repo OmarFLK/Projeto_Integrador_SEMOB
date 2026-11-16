@@ -37,6 +37,15 @@ class FinancialPage extends ConsumerWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (activeModuleView(context) == 'overview') ...[
+                SemobHeroPanel(
+                  eyebrow: 'Financeiro / Transparência',
+                  title: 'Clareza em cada movimento.',
+                  description:
+                      'Créditos transferidos e saldos registrados no período. Estes valores não representam receita tarifária.',
+                ),
+                const SizedBox(height: 20),
+              ],
               MetricsGrid(
                 children: [
                   MetricCard(
@@ -78,34 +87,37 @@ class FinancialPage extends ConsumerWidget {
               const SizedBox(height: 16),
               const ExportActions(resource: 'financial'),
               const SizedBox(height: 16),
-              TwoColumnLayout(
-                left: SectionCard(
-                  title: 'Créditos transferidos',
-                  child: AnalyticsBarChart(
-                    labels: days.map((d) => '${d.day}').toList(),
-                    series: [
-                      ChartSeries(
-                        name: 'Créditos',
-                        values: days.map((d) => d.transferredCredits).toList(),
-                        color: AppColors.green,
-                      ),
-                    ],
+              if (activeModuleView(context) == 'overview')
+                TwoColumnLayout(
+                  left: SectionCard(
+                    title: 'Créditos transferidos',
+                    child: AnalyticsBarChart(
+                      labels: days.map((d) => '${d.day}').toList(),
+                      series: [
+                        ChartSeries(
+                          name: 'Créditos',
+                          values: days
+                              .map((d) => d.transferredCredits)
+                              .toList(),
+                          color: context.palette.green,
+                        ),
+                      ],
+                    ),
+                  ),
+                  right: SectionCard(
+                    title: 'Saldo final',
+                    child: AnalyticsLineChart(
+                      labels: days.map((d) => '${d.day}').toList(),
+                      series: [
+                        ChartSeries(
+                          name: 'Saldo',
+                          values: days.map((d) => d.finalBalance).toList(),
+                          color: context.palette.blue,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                right: SectionCard(
-                  title: 'Saldo final',
-                  child: AnalyticsLineChart(
-                    labels: days.map((d) => '${d.day}').toList(),
-                    series: [
-                      ChartSeries(
-                        name: 'Saldo',
-                        values: days.map((d) => d.finalBalance).toList(),
-                        color: context.palette.blue,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
               SectionCard(
                 title: 'Movimentações',

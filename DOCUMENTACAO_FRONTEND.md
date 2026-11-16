@@ -1,6 +1,6 @@
 # Frontend SEMOB — implementação atual
 
-Atualização: 15/10/2026. Flutter/Riverpod/go_router/Dio. A documentação de operação e deploy está em [IMPLEMENTACAO_E_DEPLOY.md](IMPLEMENTACAO_E_DEPLOY.md).
+Atualização: 15/11/2026. Flutter/Riverpod/go_router/Dio. O redesign Forest Intelligence, a matriz de subabas, a recuperação manual e os comandos administrativos estão no [guia SEMOB 2.0](SEMOB_2_GUIA.md). A documentação de operação e deploy está em [IMPLEMENTACAO_E_DEPLOY.md](IMPLEMENTACAO_E_DEPLOY.md).
 
 ## Sessão e permissões
 
@@ -24,8 +24,9 @@ Rotas e navegação respeitam as permissões do usuário autenticado. O servidor
 | `/assistant` | Chamada à IA externa ou indicação explícita de conexão pendente |
 | `/reports` | CSV/PDF, visualização, modelos e importação ZIP/CSV conforme perfil |
 | `/users` | Cadastro, edição de perfil funcional, permissões e ativação/desativação |
-| `/profile` | Identidade, permissões e logout |
-| `/settings` | Modo compacto persistido no backend e aplicado ao espaçamento |
+| `/profile` | Identidade, foto, credenciais, permissões e sessões |
+| `/settings` | Tema, densidade, reduzir movimento, fixação do menu e preferências de IA persistidas |
+| `/access-requests` | Fila de recuperação manual, com revisão e aprovação restritas à administração |
 | `/help` | Orientações sobre fontes, cobertura, importação e acesso |
 
 Os filtros são carregados pela API. Operação, passageiros e financeiro usam o período; linhas e anomalias também oferecem linha; viagens/frota oferecem linha, veículo, sentido e faixa. Os controles não prometem relações ausentes nas fontes. Relatórios e IA usam o contexto de período correspondente.
@@ -39,5 +40,7 @@ Campos e datas vêm da API; textos fixos de agosto e percentuais demonstrativos 
 ## Layout e validação
 
 Mobile abaixo de 720 px, tablet até 1179 px, desktop a partir de 1180 px. Navegação adaptativa, tabelas com rolagem horizontal e cards de viagens no mobile. Noto Sans é incluída no bundle e usada também nos PDFs, com licença em `backend/assets/fonts/OFL.txt`.
+
+O shell Forest usa rail flutuante com expansão por hover/foco/clique e fixação persistida. Grupos e destinos contextuais respeitam permissões. Subabas de dashboards usam `?view=...`, preservando rotas profundas. Gráficos incluem legendas interativas, ampliação e exploração por setas, além de movimento reduzido conforme a conta ou o dispositivo. A grade considera a largura útil após a navegação.
 
 Os testes usam uma implementação de autenticação e adaptador HTTP isolados **somente em `test/`**, exercitando o cliente/repositório real do frontend. Cobrem login, dashboard, todas as rotas nas três larguras, paginação/filtros remotos e bloqueio por perfil. A integração externa de IA exige validação adicional contra o serviço real quando seu contrato estiver disponível.

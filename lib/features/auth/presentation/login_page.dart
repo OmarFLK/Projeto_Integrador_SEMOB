@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/widgets/brand_mark.dart';
+import '../../../shared/widgets/forest_widgets.dart';
 import 'auth_controller.dart';
 import 'password_recovery_dialog.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key, this.sessionExpired = false});
-
   final bool sessionExpired;
-
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
@@ -21,13 +19,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-
   @override
   void initState() {
     super.initState();
     if (widget.sessionExpired) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(authProvider.notifier).showExpiredSession();
+        if (mounted) ref.read(authProvider.notifier).showExpiredSession();
       });
     }
   }
@@ -42,145 +39,262 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    // The split institutional layout needs enough room for both panels.
     final compact = MediaQuery.sizeOf(context).width < 980;
-    return Scaffold(
-      backgroundColor: context.palette.surface,
-      body: Row(
-        children: [
-          if (!compact) const Expanded(flex: 5, child: _InstitutionalPanel()),
-          Expanded(
-            flex: compact ? 1 : 4,
-            child: SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(compact ? 24 : 48),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: AutofillGroup(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (compact) ...[
-                            const BrandMark(),
-                            const SizedBox(height: 42),
-                          ],
-                          Text(
-                            'Portal de Operação\nde Transporte',
-                            style: Theme.of(context).textTheme.headlineMedium
-                                ?.copyWith(
-                                  color: context.palette.ink,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.15,
-                                ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Acesso restrito a gestores e funcionários da SEMOB.',
-                            style: TextStyle(
-                              color: context.palette.muted,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 28),
-                          if (auth.error != null) ...[
-                            _LoginAlert(error: auth.error!),
-                            const SizedBox(height: 16),
-                          ],
-                          TextField(
-                            key: const Key('login_identifier'),
-                            controller: _identifierController,
-                            autofillHints: const [AutofillHints.username],
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'E-mail ou matrícula',
-                              hintText: 'Digite seu acesso institucional',
-                              prefixIcon: Icon(Icons.badge_outlined, size: 20),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            key: const Key('login_password'),
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            autofillHints: const [AutofillHints.password],
-                            onSubmitted: (_) => _submit(),
-                            decoration: InputDecoration(
-                              labelText: 'Senha',
-                              prefixIcon: const Icon(
-                                Icons.lock_outline_rounded,
-                                size: 20,
-                              ),
-                              suffixIcon: IconButton(
-                                tooltip: _obscurePassword
-                                    ? 'Mostrar senha'
-                                    : 'Ocultar senha',
-                                onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword,
-                                ),
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Checkbox(
-                                    value: auth.rememberAccess,
-                                    onChanged: (value) => ref
-                                        .read(authProvider.notifier)
-                                        .setRememberAccess(value ?? false),
-                                  ),
-                                  const Text('Lembrar acesso'),
-                                ],
-                              ),
-                              TextButton(
-                                onPressed: _showPasswordRecovery,
-                                child: const Text('Esqueci minha senha'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            key: const Key('login_submit'),
-                            onPressed: auth.isLoading || auth.initializing
-                                ? null
-                                : _submit,
-                            child: auth.isLoading || auth.initializing
-                                ? const SizedBox(
-                                    width: 21,
-                                    height: 21,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.white,
-                                    ),
-                                  )
-                                : const Text('Entrar'),
-                          ),
-                          const SizedBox(height: 28),
-                          Text(
-                            'Prefeitura Municipal de São Caetano do Sul • 2026',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: context.palette.muted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
+    final form = FrostedPanel(
+      child: Padding(
+        padding: EdgeInsets.all(compact ? 24 : 32),
+        child: AutofillGroup(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 15,
+                    color: context.palette.green,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'ACESSO INSTITUCIONAL',
+                    style: TextStyle(
+                      color: context.palette.muted,
+                      fontSize: 10,
+                      letterSpacing: 1.4,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'Portal de Operação\nde Transporte',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: compact ? 26 : 29,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -1,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Bem-vindo de volta. Entre para acompanhar o que move São Caetano do Sul.',
+                style: TextStyle(
+                  color: context.palette.muted,
+                  height: 1.6,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 28),
+              if (auth.error != null) ...[
+                _LoginAlert(error: auth.error!),
+                const SizedBox(height: 16),
+              ],
+              TextField(
+                key: const Key('login_identifier'),
+                controller: _identifierController,
+                autofillHints: const [AutofillHints.username],
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail ou matrícula',
+                  hintText: 'Seu acesso institucional',
+                  prefixIcon: Icon(Icons.badge_outlined, size: 19),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('login_password'),
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                autofillHints: const [AutofillHints.password],
+                onSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
+                  labelText: 'Senha',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 19),
+                  suffixIcon: IconButton(
+                    tooltip: _obscurePassword
+                        ? 'Mostrar senha'
+                        : 'Ocultar senha',
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      size: 20,
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Checkbox(
+                        value: auth.rememberAccess,
+                        onChanged: (v) => ref
+                            .read(authProvider.notifier)
+                            .setRememberAccess(v ?? false),
+                      ),
+                      const Text(
+                        'Lembrar acesso',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () => showPasswordRecoveryDialog(
+                      context,
+                      ref.read(apiClientProvider),
+                    ),
+                    child: const Text(
+                      'Esqueci minha senha',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                key: const Key('login_submit'),
+                onPressed: auth.isLoading || auth.initializing ? null : _submit,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: auth.isLoading || auth.initializing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Entrar'),
+                            Icon(Icons.north_east_rounded, size: 18),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Divider(color: context.palette.line),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 16,
+                    color: context.palette.muted,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Acesso restrito a gestores e funcionários da SEMOB. Seus dados são tratados com segurança.',
+                      style: TextStyle(
+                        color: context.palette.muted,
+                        fontSize: 10,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.forest, AppColors.forestBlack],
+              ),
+            ),
+          ),
+          if (!compact)
+            Positioned.fill(
+              child: Opacity(
+                opacity: .55,
+                child: Image.asset(
+                  'assets/images/login_bus.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    AppColors.forestBlack.withValues(alpha: .25),
+                    AppColors.forestBlack.withValues(alpha: .85),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 24 : 48,
+                    vertical: 24,
+                  ),
+                  child: const Align(
+                    alignment: Alignment.centerLeft,
+                    child: BrandMark(onDark: true),
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (!compact)
+                        const Expanded(flex: 6, child: _InstitutionalPanel()),
+                      Expanded(
+                        flex: compact ? 1 : 5,
+                        child: Center(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
+                              compact ? 20 : 32,
+                              12,
+                              compact ? 20 : 48,
+                              28,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 460),
+                              child: SemobPageTransition(child: form),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
+                  child: Text(
+                    'Prefeitura Municipal de São Caetano do Sul • 2026',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.softSage.withValues(alpha: .8),
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -194,70 +308,72 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         .signIn(_identifierController.text, _passwordController.text);
     if (success && mounted) context.go('/dashboard');
   }
-
-  Future<void> _showPasswordRecovery() async {
-    await showPasswordRecoveryDialog(context, ref.read(apiClientProvider));
-  }
 }
 
 class _InstitutionalPanel extends StatelessWidget {
   const _InstitutionalPanel();
-
   @override
-  Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(56, 24, 48, 60),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Image.asset('assets/images/login_bus.png', fit: BoxFit.cover),
-        DecoratedBox(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              stops: [0, 0.58, 1],
-              colors: [
-                const Color(0xC914211B),
-                const Color(0x5214211B),
-                context.palette.surface,
-              ],
-            ),
+            color: AppColors.forest.withValues(alpha: .75),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: AppColors.sage.withValues(alpha: .4)),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(56, 52, 96, 56),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const BrandMark(onDark: true),
-              const Spacer(),
-              const Text(
-                'SEMOB',
+              Icon(Icons.eco_outlined, color: AppColors.lime, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'MOBILIDADE COM INTELIGÊNCIA',
                 style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 52,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                  height: 1,
+                  color: AppColors.ivory,
+                  fontSize: 9,
+                  letterSpacing: 1.5,
                 ),
               ),
-              const SizedBox(height: 10),
-              const Text(
-                'São Caetano do Sul',
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0,
-                ),
-              ),
-              const SizedBox(height: 22),
-              Container(width: 58, height: 4, color: AppColors.green),
             ],
           ),
         ),
+        const SizedBox(height: 24),
+        const Text(
+          'Conectando\npessoas.\nMovendo a cidade.',
+          style: TextStyle(
+            color: AppColors.ivory,
+            fontSize: 52,
+            fontWeight: FontWeight.w700,
+            height: 1.08,
+            letterSpacing: -2,
+          ),
+        ),
+        const SizedBox(height: 22),
+        const Text(
+          'Dados que orientam. Decisões que transformam.\nUma visão integrada do transporte municipal.',
+          style: TextStyle(
+            color: AppColors.softSage,
+            fontSize: 13,
+            height: 1.8,
+          ),
+        ),
+        const SizedBox(height: 32),
+        Container(
+          width: 64,
+          height: 3,
+          decoration: BoxDecoration(
+            color: AppColors.lime,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
       ],
-    );
-  }
+    ),
+  );
 }
 
 class _LoginAlert extends StatelessWidget {

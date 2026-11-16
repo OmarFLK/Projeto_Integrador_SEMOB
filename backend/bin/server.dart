@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:semob_backend/api.dart';
 import 'package:semob_backend/auth_store.dart';
@@ -20,7 +21,11 @@ Future<void> main() async {
   if (production && (env['SEMOB_ALLOWED_ORIGINS'] ?? '').isEmpty) {
     throw StateError('Configure SEMOB_ALLOWED_ORIGINS em produção.');
   }
-  for (final key in ['SEMOB_AI_URL', 'SEMOB_RECOVERY_WEBHOOK']) {
+  for (final key in [
+    'SEMOB_AI_URL',
+    'SEMOB_RECOVERY_WEBHOOK',
+    'SEMOB_RECOVERY_ADMIN_WEBHOOK',
+  ]) {
     final value = setting(key);
     if (value != null &&
         (!Uri.parse(value).hasAuthority ||
@@ -91,16 +96,40 @@ Future<void> main() async {
     recoveryWebhookKey: setting('SEMOB_RECOVERY_WEBHOOK_KEY'),
     exposeRecoveryCode:
         !production && env['SEMOB_EXPOSE_RECOVERY_CODE'] == 'true',
+    manualRecoveryEnabled: env['SEMOB_MANUAL_RECOVERY_ENABLED'] != 'false',
+    recoveryAdminEmail:
+        setting('SEMOB_RECOVERY_ADMIN_EMAIL') ?? 'omarsalibaescola@gmail.com',
+    recoveryAdminWebhook: setting('SEMOB_RECOVERY_ADMIN_WEBHOOK'),
+    recoveryAdminWebhookKey: setting('SEMOB_RECOVERY_ADMIN_WEBHOOK_KEY'),
+    manualRecoveryLifetime: Duration(
+      hours: (int.tryParse(env['SEMOB_MANUAL_RECOVERY_HOURS'] ?? '24') ?? 24)
+          .clamp(1, 72),
+    ),
   );
   final server = await shelf_io.serve(
     api.handler,
     env['SEMOB_HOST'] ?? '127.0.0.1',
     int.parse(env['PORT'] ?? env['SEMOB_PORT'] ?? '8081'),
   );
+  // Remove expired password proposals even when no administrator opens the queue.
+  Future<void> cleanRecovery() async {
+    try {
+      await auth.db.transaction(() => api.manualRecovery.expire());
+    } catch (_) {
+      stderr.writeln('manual_recovery_cleanup_failed');
+    }
+  }
+
+  await cleanRecovery();
+  final recoveryCleanup = Timer.periodic(
+    const Duration(hours: 1),
+    (_) => cleanRecovery(),
+  );
   stdout.writeln(
     'SEMOB API: http://${server.address.host}:${server.port}; usuários: PostgreSQL; transporte: ${store.engine}',
   );
   Future<void> shutdown() async {
+    recoveryCleanup.cancel();
     await server.close(force: true);
     await auth.close();
     await store.close();

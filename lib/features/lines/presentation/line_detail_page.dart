@@ -48,8 +48,15 @@ class LineDetailPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+        SemobHeroPanel(
+          eyebrow: 'Rede municipal / Linha $lineCode',
+          title: 'Conexões ao longo do caminho.',
+          description:
+              'Viagens, veículos, quilometragem e ocorrências da linha no período $p. Os dados de passageiros não são segmentados por linha.',
+        ),
+        const SizedBox(height: 20),
         lines.when(
-          loading: () => const LinearProgressIndicator(),
+          loading: () => const SemobLoadingSkeleton(height: 160, lines: 2),
           error: (e, s) => Text(apiError(e)),
           data: (value) {
             final records = (value as List).map(

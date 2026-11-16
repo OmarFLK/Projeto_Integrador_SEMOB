@@ -13,6 +13,7 @@ import 'document_store.dart';
 import 'errors.dart';
 import 'profile_image.dart';
 import 'identity_migrations.dart';
+import 'manual_recovery.dart';
 import 'user_preferences.dart';
 
 class SemobApi {
@@ -28,12 +29,25 @@ class SemobApi {
     this.recoveryWebhook,
     this.recoveryWebhookKey,
     this.exposeRecoveryCode = false,
+    this.manualRecoveryEnabled = true,
+    this.recoveryAdminEmail = 'omarsalibaescola@gmail.com',
+    this.recoveryAdminWebhook,
+    this.recoveryAdminWebhookKey,
+    this.manualRecoveryLifetime = const Duration(hours: 24),
   });
   final DataService data;
   final AuthStore auth;
   final bool production, exposeRecoveryCode;
   final List<String> allowedOrigins;
   final String? aiUrl, aiKey, recoveryWebhook, recoveryWebhookKey;
+  final bool manualRecoveryEnabled;
+  final String recoveryAdminEmail;
+  final String? recoveryAdminWebhook, recoveryAdminWebhookKey;
+  final Duration manualRecoveryLifetime;
+  late final ManualRecoveryStore manualRecovery = ManualRecoveryStore(
+    auth,
+    lifetime: manualRecoveryLifetime,
+  );
   final String aiRequestField, aiResponseField;
   final Map<String, ({int count, DateTime until})> _limits = {};
   late final DatasetImporter importer = DatasetImporter(data.store);
@@ -53,6 +67,19 @@ class SemobApi {
     ..post('/api/v1/auth/password-recovery/request', _requestRecovery)
     ..post('/api/v1/auth/password-recovery/verify', _verifyRecovery)
     ..post('/api/v1/auth/password-recovery/reset', _resetRecovery)
+    ..get(
+      '/api/v1/auth/password-recovery/modes',
+      (Request r) => json({
+        'manual': manualRecoveryEnabled,
+        'automatic':
+            recoveryWebhook != null || !production && exposeRecoveryCode,
+        if (manualRecoveryEnabled) 'adminEmail': recoveryAdminEmail,
+      }),
+    )
+    ..post('/api/v1/auth/password-recovery/manual', _requestManualRecovery)
+    ..get('/api/v1/access-requests', _manualRecoveryRequests)
+    ..post('/api/v1/access-requests/<id>/approve', _approveManualRecovery)
+    ..post('/api/v1/access-requests/<id>/reject', _rejectManualRecovery)
     ..get('/api/v1/users', _users)
     ..post('/api/v1/users', _createUser)
     ..patch('/api/v1/users/<id>', _updateUser)
@@ -528,6 +555,83 @@ class SemobApi {
         'Content-Disposition': 'attachment; filename="$filename"',
       },
     );
+  }
+
+  Future<Response> _requestManualRecovery(Request r) async {
+    if (!manualRecoveryEnabled) {
+      throw const ApiError(503, 'Atendimento manual indisponível.');
+    }
+    _limit('manual-recovery:${_ip(r)}', 5, const Duration(minutes: 15));
+    final body = await readBody(r);
+    final identifier = text(body, 'identifier').trim().toLowerCase();
+    if (identifier.isEmpty || identifier.length > 250) {
+      throw const ApiError(400, 'Informe e-mail ou matrícula válidos.');
+    }
+    _limit(
+      'manual-account:${tokenHash(identifier)}',
+      3,
+      const Duration(hours: 1),
+    );
+    final password = text(body, 'password');
+    if (password != text(body, 'passwordConfirmation')) {
+      throw const ApiError(400, 'As novas senhas não coincidem.');
+    }
+    final id = await manualRecovery.request(
+      name: text(body, 'name'),
+      identifier: identifier,
+      password: password,
+    );
+    if (recoveryAdminWebhook != null) {
+      try {
+        await _post(recoveryAdminWebhook!, {
+          'to': recoveryAdminEmail,
+          'subject': 'SEMOB | Solicitação de recuperação de acesso',
+          'requestId': id,
+          'declaredName': text(body, 'name').trim(),
+          'identifier': identifier,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'status': 'pending',
+        }, key: recoveryAdminWebhookKey);
+        await manualRecovery.notification(id, 'sent');
+      } catch (_) {
+        // Delivery failure must not lose the pending request or leak existence.
+        await manualRecovery.notification(id, 'failed');
+      }
+    }
+    return json({
+      'requestId': id,
+      'message':
+          'Se os dados corresponderem a uma conta, sua solicitação será analisada pela administração. A senha atual permanece válida até a aprovação.',
+    }, status: 202);
+  }
+
+  Future<Response> _manualRecoveryRequests(Request r) async {
+    await _require(r, 'users');
+    return json({
+      'items': await manualRecovery.list(
+        status: r.url.queryParameters['status'],
+      ),
+      'notificationConfigured': recoveryAdminWebhook != null,
+      'adminEmail': recoveryAdminEmail,
+    });
+  }
+
+  Future<Response> _approveManualRecovery(Request r, String id) async {
+    final user = await _require(r, 'users');
+    _limit('manual-approve:${user['id']}', 20, const Duration(minutes: 15));
+    final body = await readBody(r);
+    await manualRecovery.approve(
+      id,
+      actor: user['id'] as String,
+      identityVerified: body['identityVerified'] == true,
+    );
+    return json({'ok': true});
+  }
+
+  Future<Response> _rejectManualRecovery(Request r, String id) async {
+    final user = await _require(r, 'users');
+    await manualRecovery.reject(id, actor: user['id'] as String);
+    return json({'ok': true});
   }
 
   Future<Response> _requestRecovery(Request r) async {

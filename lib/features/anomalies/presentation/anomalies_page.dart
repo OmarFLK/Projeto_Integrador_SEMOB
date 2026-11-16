@@ -70,6 +70,13 @@ class _AnomaliesPageState extends ConsumerState<AnomaliesPage> {
           ],
         ),
         const SizedBox(height: 12),
+        const SemobHeroPanel(
+          eyebrow: 'Atenção operacional',
+          title: 'Onde o olhar faz diferença.',
+          description:
+              'Investigue exceções e divergências nas fontes. Os níveis apresentados seguem os registros disponíveis, sem indicar uma resolução ainda não documentada.',
+        ),
+        const SizedBox(height: 20),
         SectionCard(
           title: 'Ocorrências recentes',
           subtitle: 'Eventos priorizados para investigação',
@@ -102,6 +109,12 @@ class _AnomaliesPageState extends ConsumerState<AnomaliesPage> {
               final filtered = data
                   .where((item) => _level == null || item.level == _level)
                   .toList();
+              if (filtered.isEmpty) {
+                return const SemobEmptyState(
+                  message: 'Nenhuma ocorrência no nível selecionado.',
+                  icon: Icons.verified_outlined,
+                );
+              }
               return Column(
                 children: filtered
                     .map((item) => _AnomalyItem(item: item))
@@ -115,12 +128,26 @@ class _AnomaliesPageState extends ConsumerState<AnomaliesPage> {
   }
 }
 
-class _AnomalyItem extends StatelessWidget {
+class _AnomalyItem extends ConsumerWidget {
   const _AnomalyItem({required this.item});
   final AnomalyRecord item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    void investigate() {
+      final period = ref.read(globalFiltersProvider).period;
+      ref
+          .read(globalFiltersProvider.notifier)
+          .update(
+            GlobalFilters(
+              period: period,
+              line: item.line,
+              vehicle: item.vehicle ?? 'Todos os veículos',
+            ),
+          );
+      context.go('/trips');
+    }
+
     final (label, color, soft) = switch (item.level) {
       AnomalyLevel.critical => (
         'CRÍTICO',
@@ -182,7 +209,8 @@ class _AnomalyItem extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: context.palette.line),
-        borderRadius: BorderRadius.circular(8),
+        color: context.palette.elevated,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: AppBreakpoints.isMobile(context)
           ? Column(
@@ -191,7 +219,7 @@ class _AnomalyItem extends StatelessWidget {
                 details,
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () => context.go('/trips'),
+                  onPressed: investigate,
                   child: const Text('Investigar'),
                 ),
               ],
@@ -202,7 +230,7 @@ class _AnomalyItem extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(child: details),
                 OutlinedButton(
-                  onPressed: () => context.go('/trips'),
+                  onPressed: investigate,
                   child: const Text('Investigar'),
                 ),
               ],

@@ -2,7 +2,11 @@
 
 Aplicação Flutter para consultar operação, viagens, passageiros, linhas, frota e financeiro da SEMOB de São Caetano do Sul. Backend Dart/Shelf com autenticação e **dois bancos separados: relacional para usuários e não relacional para transporte**.
 
-![Login do portal](screenshots/login-desktop.png)
+O redesign **Forest Intelligence / SEMOB 2.0** inclui navegação flutuante expansível, temas Forest/Sage, gráficos interativos e recuperação com revisão administrativa. Consulte [o guia da versão](SEMOB_2_GUIA.md) para navegação, migração 3, variáveis e ferramenta de recuperação manual.
+
+![Login do portal Forest Intelligence](screenshots/forest-login-desktop.png)
+
+Prévias [escura](screenshots/forest-dashboard-dark.png), [clara](screenshots/forest-dashboard-light.png) e [mobile](screenshots/forest-dashboard-mobile.png), renderizadas com dados sintéticos de teste.
 
 ## Arquitetura implementada
 
@@ -26,6 +30,8 @@ flowchart LR
 - Ponte para a IA externa preparada. **A URL/contrato do sistema existente ainda precisam ser informados para a conexão de produção.** Não há respostas simuladas.
 
 ## Executar localmente
+
+Para **ver o redesign sem banco e sem backend**, rode `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_preview.ps1`, abra `http://127.0.0.1:8080` e entre com `demo@semob.local` / `SemobDemo2026!`. Esse modo usa somente dados fictícios em memória. Consulte os limites no [guia de demonstração](SEMOB_2_GUIA.md#ver-a-interface-sem-banco-demonstração-local).
 
 Requer Flutter/Dart compatíveis com Dart `^3.12.2`. Ambiente validado: Flutter 3.47.7 / Dart 3.13.5. No Windows, o script encontra o SDK no PATH, em `FLUTTER_ROOT` ou em `~/development/flutter`.
 

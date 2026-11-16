@@ -354,13 +354,10 @@ class _ProfileState extends ConsumerState<ProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [details, const SizedBox(height: 20), identity],
                   )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 3, child: details),
-                      const SizedBox(width: 20),
-                      Expanded(flex: 2, child: identity),
-                    ],
+                : EqualHeightGrid(
+                    gap: 20,
+                    weights: const [3, 2],
+                    children: [details, identity],
                   ),
           ),
           const SizedBox(height: 20),

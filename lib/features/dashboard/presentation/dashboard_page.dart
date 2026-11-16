@@ -61,234 +61,280 @@ class _DashboardContent extends StatelessWidget {
     required this.passengers,
     required this.lines,
   });
-
   final List<OperationDay> operations;
   final List<PassengerDay> passengers;
   final List<LineSummary> lines;
-
   @override
   Widget build(BuildContext context) {
-    final scheduled = operations.fold<int>(
-      0,
-      (sum, item) => sum + item.scheduledTrips,
-    );
-    final completed = operations.fold<int>(
-      0,
-      (sum, item) => sum + item.completedTrips,
-    );
+    final scheduled = operations.fold<int>(0, (s, d) => s + d.scheduledTrips);
+    final completed = operations.fold<int>(0, (s, d) => s + d.completedTrips);
     final productiveKm = operations.fold<double>(
       0,
-      (sum, item) => sum + item.productiveKm,
+      (s, d) => s + d.productiveKm,
     );
-    final totalKm = operations.fold<double>(
-      0,
-      (sum, item) => sum + item.totalKm,
-    );
-    final turnstile = passengers.fold<int>(
-      0,
-      (sum, item) => sum + item.turnstile,
-    );
-    final advance = passengers.fold<int>(0, (sum, item) => sum + item.advance);
-    final nonPaying = passengers.fold<int>(
-      0,
-      (sum, item) => sum + item.nonPaying,
-    );
-    final passengerTotal = passengers.fold<int>(
-      0,
-      (sum, item) => sum + item.total,
-    );
-
+    final totalKm = operations.fold<double>(0, (s, d) => s + d.totalKm);
+    final turnstile = passengers.fold<int>(0, (s, d) => s + d.turnstile);
+    final advance = passengers.fold<int>(0, (s, d) => s + d.advance);
+    final nonPaying = passengers.fold<int>(0, (s, d) => s + d.nonPaying);
+    final total = turnstile + advance + nonPaying;
+    final ratio = scheduled == 0 ? 0.0 : completed / scheduled;
+    final view = activeModuleView(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        MetricsGrid(
-          children: [
-            MetricCard(
-              label: 'Passageiros totais',
-              value: Formatters.integer(passengerTotal),
-              icon: Icons.groups_2_outlined,
-              positive: true,
-              helper: 'Total do período selecionado',
-            ),
-            MetricCard(
-              label: 'Passageiros pagantes',
-              value: Formatters.integer(turnstile + advance),
-              icon: Icons.confirmation_number_outlined,
-              positive: true,
-              helper: 'Catraca + antecipados',
-            ),
-            MetricCard(
-              label: 'Não pagantes',
-              value: Formatters.integer(nonPaying),
-              icon: Icons.accessible_forward_outlined,
-              positive: false,
-              helper: 'Dado provisório',
-            ),
-            MetricCard(
-              label: 'Viagens programadas',
-              value: Formatters.integer(scheduled),
-              icon: Icons.event_note_outlined,
-              positive: false,
-              helper: 'Total do período selecionado',
-            ),
-            MetricCard(
-              label: 'Viagens realizadas',
-              value: Formatters.integer(completed),
-              icon: Icons.task_alt_rounded,
-              positive: false,
-              helper: 'Total do período selecionado',
-            ),
-            MetricCard(
-              label: 'Taxa de realização',
-              value: Formatters.percent(
-                scheduled == 0 ? 0 : completed / scheduled * 100,
-                decimals: 2,
-              ),
-              icon: Icons.speed_rounded,
-              helper: '$completed de $scheduled',
-            ),
-            MetricCard(
-              label: 'Km total',
-              value: '${Formatters.decimal(totalKm)} km',
-              icon: Icons.route_outlined,
-              helper: 'Total do período selecionado',
-            ),
-            MetricCard(
-              label: 'Km produtivo',
-              value: '${Formatters.decimal(productiveKm)} km',
-              icon: Icons.timeline_rounded,
-              helper: 'Quilometragem registrada',
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TwoColumnLayout(
-          leftFlex: 2,
-          rightFlex: 1,
-          left: SectionCard(
-            title: 'Passageiros por dia',
-            subtitle: 'Composição diária — dados provisórios de bilhetagem',
-            child: AnalyticsLineChart(
-              labels: passengers.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Catraca',
-                  values: passengers
-                      .map((item) => item.turnstile.toDouble())
-                      .toList(),
-                  color: context.palette.green,
-                ),
-                ChartSeries(
-                  name: 'Antecipados',
-                  values: passengers
-                      .map((item) => item.advance.toDouble())
-                      .toList(),
-                  color: context.palette.blue,
-                ),
-                ChartSeries(
-                  name: 'Não pagantes',
-                  values: passengers
-                      .map((item) => item.nonPaying.toDouble())
-                      .toList(),
-                  color: context.palette.amber,
-                ),
-                ChartSeries(
-                  name: 'Total',
-                  values: passengers
-                      .map((item) => item.total.toDouble())
-                      .toList(),
-                  color: context.palette.graphite,
-                ),
-              ],
-            ),
+        if (view == 'overview') ...[
+          SemobHeroPanel(
+            eyebrow: 'Inteligência operacional / SEMOB',
+            title: 'Uma cidade em movimento.',
+            description:
+                'Demanda, viagens e desempenho em uma visão integrada.\nExplore os indicadores do período selecionado.',
+            image: true,
+            trailing: MediaQuery.sizeOf(context).width < 720
+                ? null
+                : SizedBox(
+                    width: 140,
+                    height: 140,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 130,
+                          height: 130,
+                          child: CircularProgressIndicator(
+                            value: ratio.clamp(0, 1),
+                            strokeWidth: 7,
+                            backgroundColor: AppColors.sage.withValues(
+                              alpha: .2,
+                            ),
+                            color: AppColors.lime,
+                            strokeCap: StrokeCap.round,
+                          ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              scheduled == 0
+                                  ? '—'
+                                  : Formatters.percent(
+                                      ratio * 100,
+                                      decimals: 2,
+                                    ),
+                              style: const TextStyle(
+                                color: AppColors.ivory,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -1,
+                              ),
+                            ),
+                            const Text(
+                              'de realização',
+                              style: TextStyle(
+                                color: AppColors.softSage,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
           ),
-          right: SectionCard(
-            title: 'Distribuição de passageiros',
-            subtitle: 'Pagantes x não pagantes',
-            child: DistributionDonut(
-              primary: (turnstile + advance).toDouble(),
-              secondary: nonPaying.toDouble(),
-              primaryLabel: 'Pagantes',
-              secondaryLabel: 'Não pagantes',
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TwoColumnLayout(
-          left: SectionCard(
-            title: 'Viagens programadas x realizadas',
-            subtitle: 'Resultado diário da operação',
-            child: AnalyticsBarChart(
-              labels: operations.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Programadas',
-                  values: operations
-                      .map((item) => item.scheduledTrips.toDouble())
-                      .toList(),
-                  color: context.palette.graphite,
-                ),
-                ChartSeries(
-                  name: 'Realizadas',
-                  values: operations
-                      .map((item) => item.completedTrips.toDouble())
-                      .toList(),
-                  color: context.palette.green,
-                ),
-              ],
-            ),
-          ),
-          right: SectionCard(
-            title: 'Quilometragem',
-            subtitle: 'Produtiva, improdutiva e total por dia',
-            child: AnalyticsLineChart(
-              labels: operations.map((item) => '${item.day}').toList(),
-              series: [
-                ChartSeries(
-                  name: 'Produtiva',
-                  values: operations.map((item) => item.productiveKm).toList(),
-                  color: context.palette.green,
-                ),
-                ChartSeries(
-                  name: 'Improdutiva',
-                  values: operations
-                      .map((item) => item.unproductiveKm)
-                      .toList(),
-                  color: context.palette.amber,
-                ),
-                ChartSeries(
-                  name: 'Total',
-                  values: operations.map((item) => item.totalKm).toList(),
-                  color: context.palette.graphite,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SectionCard(
-          title: 'Operação por linha',
-          subtitle: 'Viagens e quilometragem consolidadas no mês',
-          trailing: TextButton(
-            onPressed: () => context.go('/lines'),
-            child: const Text('Ver linhas'),
-          ),
-          child: Column(
+          const SizedBox(height: 20),
+        ],
+        if (view != 'lines') ...[
+          MetricsGrid(
             children: [
-              AnalyticsBarChart(
-                height: 220,
-                labels: lines.map((item) => item.code).toList(),
+              MetricCard(
+                label: 'Passageiros totais',
+                value: Formatters.integer(total),
+                icon: Icons.groups_2_outlined,
+                helper: 'Bilhetagem do período · provisório',
+              ),
+              MetricCard(
+                label: 'Viagens realizadas',
+                value: Formatters.integer(completed),
+                icon: Icons.task_alt_rounded,
+                helper: '${Formatters.integer(scheduled)} programadas',
+              ),
+              MetricCard(
+                label: 'Taxa de realização',
+                value: scheduled == 0
+                    ? '—'
+                    : Formatters.percent(ratio * 100, decimals: 2),
+                icon: Icons.speed_rounded,
+                helper: '$completed de $scheduled',
+              ),
+              MetricCard(
+                label: 'Km total',
+                value: '${Formatters.decimal(totalKm)} km',
+                icon: Icons.route_outlined,
+                helper: 'Total registrado no período',
+              ),
+              if (view == 'indicators') ...[
+                MetricCard(
+                  label: 'Passageiros pagantes',
+                  value: Formatters.integer(turnstile + advance),
+                  icon: Icons.confirmation_number_outlined,
+                  helper: 'Catraca + antecipados',
+                ),
+                MetricCard(
+                  label: 'Não pagantes',
+                  value: Formatters.integer(nonPaying),
+                  icon: Icons.accessible_forward_outlined,
+                  helper: 'Dado provisório',
+                ),
+                MetricCard(
+                  label: 'Viagens programadas',
+                  value: Formatters.integer(scheduled),
+                  icon: Icons.event_note_outlined,
+                ),
+                MetricCard(
+                  label: 'Km produtivo',
+                  value: '${Formatters.decimal(productiveKm)} km',
+                  icon: Icons.timeline_rounded,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 20),
+          TwoColumnLayout(
+            leftFlex: 2,
+            rightFlex: 1,
+            left: SectionCard(
+              title: 'O pulso da cidade',
+              subtitle: 'Passageiros por dia · composição da bilhetagem',
+              child: AnalyticsLineChart(
+                height: 280,
+                labels: passengers.map((d) => '${d.day}').toList(),
                 series: [
                   ChartSeries(
-                    name: 'Viagens',
-                    values: lines.map((item) => item.trips.toDouble()).toList(),
+                    name: 'Total',
+                    values: passengers.map((d) => d.total.toDouble()).toList(),
+                    color: context.palette.green,
+                  ),
+                  ChartSeries(
+                    name: 'Catraca',
+                    values: passengers
+                        .map((d) => d.turnstile.toDouble())
+                        .toList(),
+                    color: context.palette.blue,
+                  ),
+                  ChartSeries(
+                    name: 'Antecipados',
+                    values: passengers
+                        .map((d) => d.advance.toDouble())
+                        .toList(),
+                    color: context.palette.amber,
+                  ),
+                  ChartSeries(
+                    name: 'Não pagantes',
+                    values: passengers
+                        .map((d) => d.nonPaying.toDouble())
+                        .toList(),
+                    color: context.palette.graphite,
+                  ),
+                ],
+              ),
+            ),
+            right: SectionCard(
+              title: 'Quem se move',
+              subtitle: 'Distribuição de passageiros',
+              child: DistributionDonut(
+                primary: (turnstile + advance).toDouble(),
+                secondary: nonPaying.toDouble(),
+                primaryLabel: 'Pagantes',
+                secondaryLabel: 'Não pagantes',
+                height: 280,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TwoColumnLayout(
+            left: SectionCard(
+              title: 'Planejado e realizado',
+              subtitle: 'Viagens programadas x realizadas por dia',
+              child: AnalyticsBarChart(
+                labels: operations.map((d) => '${d.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Programadas',
+                    values: operations
+                        .map((d) => d.scheduledTrips.toDouble())
+                        .toList(),
+                    color: context.palette.graphite,
+                  ),
+                  ChartSeries(
+                    name: 'Realizadas',
+                    values: operations
+                        .map((d) => d.completedTrips.toDouble())
+                        .toList(),
                     color: context.palette.green,
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              _LineSummaryTable(lines: lines),
-            ],
+            ),
+            right: SectionCard(
+              title: 'Cada quilômetro conta',
+              subtitle: 'Produtiva, improdutiva e total por dia',
+              child: AnalyticsLineChart(
+                labels: operations.map((d) => '${d.day}').toList(),
+                series: [
+                  ChartSeries(
+                    name: 'Produtiva',
+                    values: operations.map((d) => d.productiveKm).toList(),
+                    color: context.palette.green,
+                  ),
+                  ChartSeries(
+                    name: 'Improdutiva',
+                    values: operations.map((d) => d.unproductiveKm).toList(),
+                    color: context.palette.amber,
+                  ),
+                  ChartSeries(
+                    name: 'Total',
+                    values: operations.map((d) => d.totalKm).toList(),
+                    color: context.palette.blue,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        if (view != 'indicators')
+          SectionCard(
+            title: 'As conexões da cidade',
+            subtitle: 'Participação das linhas nas viagens do período',
+            trailing: TextButton.icon(
+              onPressed: () => context.go('/lines'),
+              icon: const Icon(Icons.north_east, size: 15),
+              label: const Text('Explorar linhas'),
+            ),
+            child: Column(
+              children: [
+                AnalyticsBarChart(
+                  height: 200,
+                  labels: lines.map((l) => l.code).toList(),
+                  series: [
+                    ChartSeries(
+                      name: 'Viagens',
+                      values: lines.map((l) => l.trips.toDouble()).toList(),
+                      color: context.palette.green,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _LineSummaryTable(lines: lines),
+              ],
+            ),
+          ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton.icon(
+            onPressed: () => context.go('/anomalies'),
+            icon: const Icon(Icons.radar_rounded, size: 18),
+            label: const Text('Consultar ocorrências'),
           ),
         ),
       ],
@@ -379,10 +425,7 @@ class _LoadingDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 320,
-      child: Center(child: CircularProgressIndicator()),
-    );
+    return const SemobLoadingSkeleton(height: 320);
   }
 }
 

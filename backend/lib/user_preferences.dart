@@ -4,6 +4,8 @@ import 'errors.dart';
 const defaultPreferences = <String, dynamic>{
   'compact': false,
   'theme': 'system',
+  'sidebarPinned': false,
+  'reduceMotion': false,
   'chatTextSize': 'normal',
   'chatAssistant': 'last',
   'chatStreaming': true,
@@ -36,6 +38,8 @@ Document validatePreferences(Document previous, Document changes) {
     }
     final valid = switch (key) {
       'compact' ||
+      'sidebarPinned' ||
+      'reduceMotion' ||
       'chatStreaming' ||
       'chatShowTimestamps' ||
       'aiReasoning' ||

@@ -68,6 +68,13 @@ class _FleetPageState extends ConsumerState<FleetPage> {
           ],
         ),
         const SizedBox(height: 12),
+        const SemobHeroPanel(
+          eyebrow: 'Frota / Histórico',
+          title: 'Conheça quem percorre a cidade.',
+          description:
+              'Consulte os prefixos registrados, as linhas atendidas e a quilometragem do período. Os dados representam histórico operacional.',
+        ),
+        const SizedBox(height: 20),
         SectionCard(
           title: 'Veículos',
           subtitle: 'Consolidação mensal por prefixo',
@@ -88,6 +95,11 @@ class _FleetPageState extends ConsumerState<FleetPage> {
               final filtered = data
                   .where((item) => item.prefix.contains(_search.trim()))
                   .toList();
+              if (filtered.isEmpty) {
+                return const SemobEmptyState(
+                  message: 'Nenhum veículo corresponde à busca.',
+                );
+              }
               if (AppBreakpoints.isMobile(context)) {
                 return Column(
                   children: filtered
@@ -158,7 +170,10 @@ class _VehicleCard extends StatelessWidget {
         children: [
           CircleAvatar(
             backgroundColor: context.palette.greenLight,
-            child: Icon(Icons.directions_bus_outlined, color: AppColors.green),
+            child: Icon(
+              Icons.directions_bus_outlined,
+              color: context.palette.green,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
