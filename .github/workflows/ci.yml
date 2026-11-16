@@ -4,7 +4,9 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # ubuntu-latest moved to 26.04; MongoDB 8.0.32 rejects its kernel >= 6.19
+    # (SERVER-121912). Keep the integration-test host on the compatible LTS.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:17
