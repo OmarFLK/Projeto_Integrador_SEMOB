@@ -1,5 +1,7 @@
 # Portal de Operação de Transporte — SEMOB
 
+Assistente com RAG fornecido pelo MAUA_IA: [contrato, configuração no Render e verificação](INTEGRACAO_MAUA_IA.md).
+
 Aplicação Flutter para consultar operação, viagens, passageiros, linhas, frota e financeiro da SEMOB de São Caetano do Sul. Backend Dart/Shelf com autenticação e **dois bancos separados: relacional para usuários e não relacional para transporte**.
 
 O redesign **Forest Intelligence / SEMOB 2.0** inclui navegação flutuante expansível, temas Forest/Sage, gráficos interativos e recuperação com revisão administrativa. Consulte [o guia da versão](SEMOB_2_GUIA.md) para navegação, migração 3, variáveis e ferramenta de recuperação manual.

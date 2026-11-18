@@ -387,7 +387,12 @@ void main() {
         );
         r.response.headers.contentType = ContentType.json;
         r.response.write(
-          jsonEncode({'answer': 'Resposta real do serviço de teste'}),
+          jsonEncode({
+            'answer': 'Resposta real do serviço de teste',
+            'assistant': 'cmob',
+            'sources': ['CMob: operation_daily'],
+            'kind': 'analytics',
+          }),
         );
         await r.response.close();
       });
@@ -403,16 +408,46 @@ void main() {
           '/api/v1/assistant',
           body: {
             'message': 'Como foi a operação?',
+            'user_id': 'forged-user-id',
+            'conversation_id': 'presentation-chat',
             'filters': {'period': '2026-08'},
           },
         );
         expect(response.statusCode, 200);
-        expect(
-          (await object(response))['answer'],
-          contains('serviço de teste'),
-        );
+        final result = await object(response);
+        expect(result['answer'], contains('serviço de teste'));
+        expect(result['sources'], ['CMob: operation_daily']);
+        expect(result['assistant'], 'cmob');
+        expect(jsonEncode(result), isNot(contains('test-external-key')));
         expect(requests.single['context']['period'], '2026-08');
         expect(requests.single.containsKey('user'), false);
+        expect(requests.single['user_id'], adminId);
+        expect(requests.single['conversation_id'], 'presentation-chat');
+        expect(requests.single['preferences']['assistant'], 'rag');
+        expect(jsonEncode(requests.single), isNot(contains(token)));
+        expect(
+          (await object(
+            await call('GET', '/api/v1/assistant/status'),
+          ))['configured'],
+          true,
+        );
+        expect(
+          (await call(
+            'POST',
+            '/api/v1/assistant',
+            authenticated: false,
+            body: {'message': 'teste'},
+          )).statusCode,
+          401,
+        );
+        expect(
+          (await call(
+            'POST',
+            '/api/v1/assistant',
+            body: {'message': 'teste', 'conversation_id': ''},
+          )).statusCode,
+          400,
+        );
       } finally {
         await server.close(force: true);
         api = SemobApi(DataService(store), auth);
@@ -425,6 +460,97 @@ void main() {
         )).statusCode,
         503,
       );
+    },
+  );
+  test(
+    'live MAUA API preserves the authenticated SEMOB boundary over HTTP',
+    () async {
+      api = SemobApi(
+        DataService(store),
+        auth,
+        aiUrl: Platform.environment['SEMOB_TEST_MAUA_URL'],
+        aiKey: Platform.environment['SEMOB_TEST_MAUA_KEY'],
+      );
+      try {
+        final response = await call(
+          'POST',
+          '/api/v1/assistant',
+          body: {
+            'message': 'Qual foi o total de passageiros em agosto de 2026?',
+            'conversation_id': 'http-contract-test',
+            'filters': {'period': '2026-08'},
+          },
+        );
+        expect(response.statusCode, 200);
+        final result = await object(response);
+        expect(result['assistant'], 'cmob');
+        expect(result['kind'], 'analytics');
+        expect(result['answer'], contains('1.050.248'));
+        expect(result['sources'], contains('CMob: passengers_daily'));
+      } finally {
+        api = SemobApi(DataService(store), auth);
+      }
+    },
+    skip:
+        Platform.environment['SEMOB_TEST_MAUA_URL'] == null ||
+            Platform.environment['SEMOB_TEST_MAUA_KEY'] == null
+        ? 'Configure a API MAUA_IA de teste para validar os dois serviços reais.'
+        : false,
+  );
+  test(
+    'assistant refuses a general model response and requires both server settings',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((r) async {
+        await r.drain<void>();
+        r.response.headers.contentType = ContentType.json;
+        r.response.write(
+          jsonEncode({
+            'answer': 'Resposta livre',
+            'assistant': 'general',
+            'sources': [],
+          }),
+        );
+        await r.response.close();
+      });
+      try {
+        api = SemobApi(
+          DataService(store),
+          auth,
+          aiUrl: 'http://127.0.0.1:${server.port}/chat',
+          aiKey: 'test-key',
+        );
+        expect(
+          (await call(
+            'POST',
+            '/api/v1/assistant',
+            body: {'message': 'teste'},
+          )).statusCode,
+          502,
+        );
+        api = SemobApi(
+          DataService(store),
+          auth,
+          aiUrl: 'http://127.0.0.1:${server.port}/chat',
+        );
+        expect(
+          (await object(
+            await call('GET', '/api/v1/assistant/status'),
+          ))['configured'],
+          false,
+        );
+        expect(
+          (await call(
+            'POST',
+            '/api/v1/assistant',
+            body: {'message': 'teste'},
+          )).statusCode,
+          503,
+        );
+      } finally {
+        await server.close(force: true);
+        api = SemobApi(DataService(store), auth);
+      }
     },
   );
 }

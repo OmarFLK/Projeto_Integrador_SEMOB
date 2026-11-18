@@ -108,7 +108,13 @@ class SemobApi {
     })
     ..get('/api/v1/assistant/status', (Request r) async {
       await _require(r, 'assistant');
-      return json({'configured': aiUrl != null, 'mode': 'external-api'});
+      return json({
+        'configured':
+            aiUrl?.trim().isNotEmpty == true &&
+            aiKey?.trim().isNotEmpty == true,
+        'mode': 'maua-rag',
+        'assistant': 'cmob',
+      });
     })
     ..post('/api/v1/assistant', _assistant)
     ..post('/api/v1/imports', _import)
@@ -700,7 +706,7 @@ class SemobApi {
   Future<Response> _assistant(Request r) async {
     final user = await _require(r, 'assistant');
     _limit('assistant:${user['id']}', 20, const Duration(minutes: 15));
-    if (aiUrl == null) {
+    if (aiUrl?.trim().isNotEmpty != true || aiKey?.trim().isNotEmpty != true) {
       throw const ApiError(
         503,
         'A conexão com a IA institucional ainda não foi configurada.',
@@ -710,6 +716,12 @@ class SemobApi {
     final message = text(body, 'message');
     if (message.isEmpty || message.length > 4000) {
       throw const ApiError(400, 'Digite uma pergunta de até 4.000 caracteres.');
+    }
+    final conversationId = body['conversation_id'] ?? 'workspace';
+    if (conversationId is! String ||
+        conversationId.trim().isEmpty ||
+        conversationId.length > 100) {
+      throw const ApiError(400, 'Identificador de conversa inválido.');
     }
     final filters = body['filters'];
     if (filters != null && filters is! Map) {
@@ -729,14 +741,32 @@ class SemobApi {
             'sources': <String>[],
           };
     try {
-      final response = await _post(aiUrl!, {
-        aiRequestField: message,
-        'context': context,
-        'preferences': aiPreferences(prefs),
-      }, key: aiKey);
+      final response = await _post(
+        aiUrl!,
+        {
+          aiRequestField: message,
+          // Identity comes exclusively from the authenticated SEMOB session.
+          // Never accept a client-supplied user_id or forward a session token.
+          'user_id': user['id'],
+          'conversation_id': conversationId,
+          'context': context,
+          'preferences': {...aiPreferences(prefs), 'assistant': 'rag'},
+        },
+        key: aiKey,
+        timeout: const Duration(seconds: 55),
+      );
       final answer = response[aiResponseField];
-      if (answer is! String || answer.trim().isEmpty) {
+      if (answer is! String ||
+          answer.trim().isEmpty ||
+          response['assistant'] != 'cmob') {
         throw const ApiError(502, 'A IA respondeu em formato incompatível.');
+      }
+      final sources = response['sources'];
+      if (sources is! List || sources.any((source) => source is! String)) {
+        throw const ApiError(
+          502,
+          'A IA respondeu sem fontes em formato válido.',
+        );
       }
       await auth.log(user['id'] as String, 'assistant.request', {
         'period': context['period'],
@@ -744,7 +774,10 @@ class SemobApi {
       return json({
         'answer': answer,
         'context': context,
-        'sources': context['sources'],
+        'sources': sources,
+        'assistant': 'cmob',
+        'kind': response['kind'],
+        'conversation_id': conversationId,
       });
     } on ApiError {
       rethrow;
@@ -836,7 +869,12 @@ void _validateQuery(Map<String, String> q) {
   }
 }
 
-Future<Document> _post(String url, Document body, {String? key}) async {
+Future<Document> _post(
+  String url,
+  Document body, {
+  String? key,
+  Duration timeout = const Duration(seconds: 45),
+}) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
   try {
     return await (() async {
@@ -863,7 +901,7 @@ Future<Document> _post(String url, Document body, {String? key}) async {
         throw const ApiError(502, 'Resposta externa inválida.');
       }
       return value;
-    })().timeout(const Duration(seconds: 45));
+    })().timeout(timeout);
   } finally {
     client.close(force: true);
   }
